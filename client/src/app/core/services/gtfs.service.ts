@@ -15,6 +15,19 @@ export class GtfsService {
   readonly tripToRoute = signal<Record<string, string>>({});
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly hiddenRoutes = signal<Set<string>>(new Set());
+
+  toggleRoute(routeId: string, visible: boolean): void {
+    this.hiddenRoutes.update((set) => {
+      const next = new Set(set);
+      if (visible) {
+        next.delete(routeId);
+      } else {
+        next.add(routeId);
+      }
+      return next;
+    });
+  }
 
   loadStaticData(agencyId: string): void {
     this.loading.set(true);
@@ -46,6 +59,7 @@ export class GtfsService {
     this.routes.set([]);
     this.stops.set([]);
     this.tripToRoute.set({});
+    this.hiddenRoutes.set(new Set());
     this.loading.set(false);
     this.error.set(null);
   }

@@ -5,26 +5,25 @@ import { RealtimeService } from '../../../core/services/realtime.service';
   selector: 'app-alert-panel',
   template: `
     <div class="alert-panel">
-      <h3>Service Alerts</h3>
-
-      @if (realtimeService.reconnecting()) {
-        <div class="alert-panel__banner">Reconnecting…</div>
-      }
-
-      @if (!realtimeService.connected() && !realtimeService.reconnecting() && realtimeService.stale()) {
-        <div class="alert-panel__banner alert-panel__banner--error">
-          Connection lost. <button (click)="realtimeService.retry()">Retry</button>
-        </div>
-      }
+      <div class="alert-panel__header">
+        <h3>Service Alerts</h3>
+        @if (realtimeService.alerts().length > 0) {
+          <span class="alert-panel__count">{{ realtimeService.alerts().length }}</span>
+        }
+      </div>
 
       @for (alert of realtimeService.alerts(); track alert.id) {
         <div class="alert-panel__item">
-          <div class="alert-panel__item-header">
-            <span class="alert-panel__cause">{{ alert.cause }}</span>
-            <span class="alert-panel__effect">{{ alert.effect }}</span>
+          <div class="alert-panel__item-tags">
+            <span class="alert-panel__tag alert-panel__tag--cause">{{ alert.cause }}</span>
+            <span class="alert-panel__tag alert-panel__tag--effect">{{ alert.effect }}</span>
           </div>
-          <p class="alert-panel__header-text">{{ alert.headerText }}</p>
-          <p class="alert-panel__desc">{{ alert.descriptionText }}</p>
+          @if (alert.headerText) {
+            <p class="alert-panel__title">{{ alert.headerText }}</p>
+          }
+          @if (alert.descriptionText) {
+            <p class="alert-panel__desc">{{ alert.descriptionText }}</p>
+          }
         </div>
       }
 
@@ -34,67 +33,69 @@ import { RealtimeService } from '../../../core/services/realtime.service';
     </div>
   `,
   styles: [`
-    .alert-panel h3 {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
-    }
-    .alert-panel__banner {
-      padding: 0.5rem;
-      background: #fff3e0;
-      border-radius: 4px;
+    .alert-panel__header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       margin-bottom: 0.5rem;
-      font-size: 0.875rem;
     }
-    .alert-panel__banner--error {
-      background: #ffebee;
+    .alert-panel__header h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
     }
-    .alert-panel__banner--error button {
-      background: none;
-      border: 1px solid #d32f2f;
-      border-radius: 4px;
-      color: #d32f2f;
-      cursor: pointer;
-      padding: 0.125rem 0.5rem;
-      font-size: 0.75rem;
+    .alert-panel__count {
+      background: var(--color-error);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
     }
     .alert-panel__item {
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      padding: 0.5rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.625rem 0.75rem;
       margin-bottom: 0.5rem;
+      background: var(--color-bg-card);
     }
-    .alert-panel__item-header {
+    .alert-panel__item-tags {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.25rem;
+      gap: 0.375rem;
+      margin-bottom: 0.375rem;
+      flex-wrap: wrap;
     }
-    .alert-panel__cause, .alert-panel__effect {
-      font-size: 0.75rem;
+    .alert-panel__tag {
+      font-size: 0.7rem;
       font-weight: 600;
-      padding: 0.125rem 0.375rem;
-      border-radius: 3px;
+      padding: 0.1rem 0.4rem;
+      border-radius: var(--radius-sm);
     }
-    .alert-panel__cause {
-      background: #fff3e0;
-      color: #e65100;
+    .alert-panel__tag--cause {
+      background: var(--color-warning-light);
+      color: var(--color-warning);
     }
-    .alert-panel__effect {
-      background: #fce4ec;
-      color: #c62828;
+    .alert-panel__tag--effect {
+      background: var(--color-error-light);
+      color: var(--color-error);
     }
-    .alert-panel__header-text {
+    .alert-panel__title {
       margin: 0 0 0.25rem;
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       font-weight: 500;
     }
     .alert-panel__desc {
       margin: 0;
-      font-size: 0.8125rem;
-      color: #666;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      line-height: 1.4;
     }
     .alert-panel__empty {
-      color: #999;
-      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+      padding: 0.5rem 0;
     }
   `],
 })

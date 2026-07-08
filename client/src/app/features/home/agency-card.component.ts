@@ -7,58 +7,99 @@ import { Agency } from '@shared/models/agency.model';
     <div class="agency-card" (click)="select.emit(agency())">
       <div class="agency-card__header">
         <h3 class="agency-card__name">{{ agency().name }}</h3>
-        <span class="agency-card__location">{{ agency().location }}, {{ agency().state }}</span>
+        <span class="agency-card__location">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          {{ agency().location }}, {{ agency().state }}
+        </span>
       </div>
-      <div class="agency-card__body">
+      <div class="agency-card__footer">
         @if (agency().hasRealtime) {
-          <span class="agency-card__badge agency-card__badge--live">Live</span>
-        } @else {
-          <span class="agency-card__badge agency-card__badge--static">Static only</span>
+          <span class="agency-card__badge agency-card__badge--live">
+            <span class="agency-card__dot"></span>
+            Live tracking
+          </span>
         }
+        <span class="agency-card__arrow">→</span>
       </div>
     </div>
   `,
   styles: [`
     .agency-card {
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
       cursor: pointer;
-      transition: box-shadow 0.2s, border-color 0.2s;
+      background: var(--color-bg-card);
+      transition: all var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-height: 130px;
     }
     .agency-card:hover {
-      border-color: #1976d2;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
     }
     .agency-card__header {
-      margin-bottom: 0.75rem;
+      flex: 1;
     }
     .agency-card__name {
-      margin: 0;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.375rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .agency-card__location {
-      color: #666;
-      font-size: 0.875rem;
-    }
-    .agency-card__body {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.25rem;
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+    }
+    .agency-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .agency-card__badge {
-      padding: 0.125rem 0.5rem;
-      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      border-radius: var(--radius-sm);
       font-size: 0.75rem;
       font-weight: 600;
     }
     .agency-card__badge--live {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: var(--color-success-light);
+      color: var(--color-success);
     }
-    .agency-card__badge--static {
-      background: #f5f5f5;
-      color: #757575;
+    .agency-card__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .agency-card__arrow {
+      color: var(--color-text-muted);
+      font-size: 1.1rem;
+      transition: transform var(--transition), color var(--transition);
+    }
+    .agency-card:hover .agency-card__arrow {
+      transform: translateX(3px);
+      color: var(--color-primary);
     }
   `],
 })

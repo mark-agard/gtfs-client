@@ -8,8 +8,8 @@ import { CitySelectorComponent } from './city-selector.component';
   template: `
     <div class="home">
       <header class="home__header">
-        <h1>GTFS Client</h1>
-        <p>Select a U.S. transit agency to explore live transit data</p>
+        <h1 class="home__title">GTFS Client</h1>
+        <p class="home__subtitle">Explore live transit data from U.S. transit agencies</p>
       </header>
       <app-city-selector />
     </div>
@@ -18,19 +18,22 @@ import { CitySelectorComponent } from './city-selector.component';
     .home {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 2rem 1rem;
+      padding: 2.5rem 1.5rem 3rem;
     }
     .home__header {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
     }
-    .home__header h1 {
-      font-size: 2.5rem;
-      margin: 0;
+    .home__title {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.5px;
     }
-    .home__header p {
-      color: #666;
-      margin: 0.5rem 0 0;
+    .home__subtitle {
+      color: var(--color-text-secondary);
+      margin-top: 0.5rem;
+      font-size: 1.05rem;
     }
   `],
 })

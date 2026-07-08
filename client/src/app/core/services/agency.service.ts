@@ -10,6 +10,8 @@ export class AgencyService {
 
   readonly agencies = signal<Agency[]>([]);
   readonly total = signal(0);
+  readonly page = signal(1);
+  readonly pageSize = signal(50);
   readonly selectedAgency = signal<AgencyDetail | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
@@ -17,6 +19,8 @@ export class AgencyService {
   fetchAgencies(page = 1, pageSize = 50, search?: string): void {
     this.loading.set(true);
     this.error.set(null);
+    this.page.set(page);
+    this.pageSize.set(pageSize);
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (search) params.set('search', search);
     this.http

@@ -22,27 +22,38 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
           <div class="map-page__map-area">
             @if (realtimeService.reconnecting()) {
               <div class="map-page__banner map-page__banner--reconnecting">
+                <span class="map-page__banner-dot"></span>
                 Reconnecting…
               </div>
             }
             @if (realtimeService.connected() === false && realtimeService.reconnecting() === false && agencyService.selectedAgency()?.hasRealtime) {
               <div class="map-page__banner map-page__banner--lost">
-                Connection lost. <button (click)="realtimeService.retry()">Retry</button>
+                Connection lost <button (click)="realtimeService.retry()">Retry</button>
               </div>
             }
             <app-map />
           </div>
           <div class="map-page__sidebar">
             <div class="map-page__sidebar-header">
-              <h2>{{ agencyService.selectedAgency()?.name }}</h2>
+              <div>
+                <h2>{{ agencyService.selectedAgency()?.name }}</h2>
+                <span class="map-page__agency-location">
+                  {{ agencyService.selectedAgency()?.location }}, {{ agencyService.selectedAgency()?.state }}
+                </span>
+              </div>
               <a routerLink="/" class="map-page__back">← Back</a>
             </div>
-            <app-route-list />
-            <app-alert-panel />
+            <div class="map-page__sidebar-content">
+              <app-route-list />
+              <app-alert-panel />
+            </div>
           </div>
         </div>
       } @else {
-        <div class="map-page__loading">Loading agency...</div>
+        <div class="map-page__loading">
+          <div class="map-page__spinner"></div>
+          <p>Loading agency…</p>
+        </div>
       }
     </div>
   `,
@@ -65,66 +76,113 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
     }
     .map-page__banner {
       position: absolute;
-      top: 0.5rem;
+      top: 0.75rem;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
-      padding: 0.375rem 1rem;
-      border-radius: 4px;
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius-md);
       font-size: 0.875rem;
       font-weight: 500;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
     .map-page__banner--reconnecting {
-      background: #fff3e0;
-      color: #e65100;
+      background: var(--color-warning-light);
+      color: var(--color-warning);
+    }
+    .map-page__banner-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-warning);
+      animation: pulse 1.5s infinite;
     }
     .map-page__banner--lost {
-      background: #ffebee;
-      color: #c62828;
+      background: var(--color-error-light);
+      color: var(--color-error);
     }
     .map-page__banner--lost button {
-      background: #c62828;
+      background: var(--color-error);
       color: #fff;
-      border: none;
-      padding: 0.125rem 0.5rem;
-      border-radius: 3px;
-      cursor: pointer;
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 600;
       margin-left: 0.25rem;
     }
     .map-page__sidebar {
-      width: 320px;
-      border-left: 1px solid #e0e0e0;
-      overflow-y: auto;
-      padding: 1rem;
-      box-sizing: border-box;
+      width: 340px;
+      border-left: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     .map-page__sidebar-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--color-border);
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
+      align-items: flex-start;
     }
     .map-page__sidebar-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
       margin: 0;
-      font-size: 1.25rem;
+    }
+    .map-page__agency-location {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
     }
     .map-page__back {
-      color: #1976d2;
-      text-decoration: none;
-      font-size: 0.875rem;
+      color: var(--color-primary);
+      font-size: 0.8rem;
+      white-space: nowrap;
+      padding-top: 0.15rem;
     }
-    .map-page__loading, .map-page__error {
+    .map-page__sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem;
+    }
+    .map-page__loading {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100%;
-      color: #666;
+      gap: 1rem;
+      color: var(--color-text-muted);
+    }
+    .map-page__spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .map-page__error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 0.5rem;
+      color: var(--color-error);
     }
     .map-page__error a {
-      color: #1976d2;
-      margin-top: 0.5rem;
+      color: var(--color-primary);
     }
   `],
 })

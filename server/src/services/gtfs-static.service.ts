@@ -65,8 +65,9 @@ export class GtfsStaticService {
 
     const routes = await this.parseRoutes(files.get('routes.txt'));
     const stops = await this.parseStops(files.get('stops.txt'));
-    const shapes = await this.parseShapes(files.get('shapes.txt'));
-    const trips = await this.parseTrips(files.get('trips.txt'));
+    const tripsRaw = await this.parseCsv(files.get('trips.txt'));
+    const trips = this.buildTripsMap(tripsRaw);
+    const shapes = await this.parseShapes(files.get('shapes.txt'), tripsRaw);
 
     return { routes, stops, shapes, trips };
   }
@@ -156,8 +157,18 @@ export class GtfsStaticService {
     return { type: 'FeatureCollection', features };
   }
 
-  private async parseShapes(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection> {
+  private async parseShapes(
+    buffer: Buffer | undefined,
+    tripRecords: Record<string, string>[],
+  ): Promise<GeoJSONFeatureCollection> {
     if (!buffer) return { type: 'FeatureCollection', features: [] };
+
+    const shapeToRoute = new Map<string, string>();
+    for (const t of tripRecords) {
+      if (t.shape_id && t.route_id) {
+        shapeToRoute.set(t.shape_id, t.route_id);
+      }
+    }
 
     const records = await this.parseCsv(buffer);
 
@@ -179,22 +190,22 @@ export class GtfsStaticService {
     const features = Array.from(shapeMap.entries()).map(([shapeId, coords]) => ({
       type: 'Feature' as const,
       geometry: { type: 'LineString' as const, coordinates: coords },
-      properties: { shapeId },
+      properties: {
+        shapeId,
+        routeId: shapeToRoute.get(shapeId) ?? '',
+      },
     }));
 
     return { type: 'FeatureCollection', features };
   }
 
-  private async parseTrips(buffer: Buffer | undefined): Promise<Record<string, string>> {
-    const records = await this.parseCsv(buffer);
-
+  private buildTripsMap(records: Record<string, string>[]): Record<string, string> {
     const trips: Record<string, string> = {};
     for (const r of records) {
       if (r.trip_id && r.route_id) {
         trips[r.trip_id] = r.route_id;
       }
     }
-
     return trips;
   }
 }

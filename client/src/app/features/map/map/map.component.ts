@@ -14,12 +14,13 @@ import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import { fromLonLat, transformExtent } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape } from 'ol/style';
 import { Feature } from 'ol';
 import { Point } from 'ol/geom';
+import { defaults as defaultControls } from 'ol/control';
 import { GtfsService } from '../../../core/services/gtfs.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
 import { AgencyService } from '../../../core/services/agency.service';
@@ -37,6 +38,67 @@ import { VehiclePosition } from '@shared/models/vehicle-position.model';
     .map__container {
       width: 100%;
       height: 100%;
+    }
+    :host ::ng-deep .ol-attribution {
+      bottom: 0.5rem;
+      right: 0.5rem;
+      max-width: calc(100% - 2rem);
+    }
+    :host ::ng-deep .ol-attribution.ol-collapsed {
+      background: rgba(255,255,255,0.8);
+      border-radius: 4px;
+    }
+    :host ::ng-deep .ol-attribution.ol-collapsed ul {
+      display: none;
+    }
+    :host ::ng-deep .ol-attribution button {
+      display: none;
+    }
+    :host ::ng-deep .ol-zoom {
+      top: 0.75rem;
+      left: 0.75rem;
+    }
+    :host ::ng-deep .ol-zoom button {
+      display: block;
+      width: 1.75rem;
+      height: 1.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--color-bg-card);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    :host ::ng-deep .ol-zoom button:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+    :host ::ng-deep .ol-zoom button:first-child {
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    }
+    :host ::ng-deep .ol-zoom button:last-child {
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      border-top: none;
+    }
+    :host ::ng-deep .ol-rotate button {
+      display: block;
+      width: 1.75rem;
+      height: 1.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--color-bg-card);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    :host ::ng-deep .ol-rotate button:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
     }
   `],
 })
@@ -84,7 +146,12 @@ export class MapComponent implements OnDestroy {
       this.map = new Map({
         target: this.mapEl.nativeElement,
         layers: [
-          new TileLayer({ source: new OSM() }),
+          new TileLayer({
+            source: new XYZ({
+              url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+              attributions: '© OpenStreetMap contributors © CARTO',
+            }),
+          }),
           this.routeLayer,
           this.stopLayer,
           this.vehicleLayer,
@@ -92,6 +159,9 @@ export class MapComponent implements OnDestroy {
         view: new View({
           center: fromLonLat([-98.5, 39.8]),
           zoom: 4,
+        }),
+        controls: defaultControls({
+          attributionOptions: { collapsible: true, collapsed: true },
         }),
       });
       this.map.updateSize();
@@ -126,6 +196,15 @@ export class MapComponent implements OnDestroy {
           });
           this.routeSource.addFeatures(features);
         },
+      });
+    });
+
+    effect(() => {
+      if (!this.mapReady()) return;
+      const hidden = this.gtfsService.hiddenRoutes();
+      this.routeSource.getFeatures().forEach((feature) => {
+        const routeId = feature.get('routeId') as string;
+        feature.setStyle(hidden.has(routeId) ? [] : undefined);
       });
     });
 
