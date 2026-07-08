@@ -99,7 +99,7 @@ export class GtfsRealtimeService {
                 lon: v.position.longitude,
                 bearing: v.position.bearing ?? 0,
                 speed: v.position.speed ?? 0,
-                timestamp: v.timestamp ?? Date.now() / 1000,
+                timestamp: Number(v.timestamp ?? Date.now() / 1000),
                 currentStopSequence: v.currentStopSequence,
                 currentStatus: v.currentStatus,
               });
