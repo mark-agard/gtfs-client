@@ -40,9 +40,13 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
                 @if (agencyService.selectedAgency()?.feedName) {
                   <span class="map-page__feed-name">{{ agencyService.selectedAgency()?.feedName }}</span>
                 }
-                <span class="map-page__agency-location">
-                  {{ agencyService.selectedAgency()?.location }}, {{ agencyService.selectedAgency()?.state }}
-                </span>
+                @if (agencyService.selectedAgency()?.location) {
+                  <span class="map-page__agency-location">
+                    {{ agencyService.selectedAgency()?.location }}, {{ agencyService.selectedAgency()?.state }}
+                  </span>
+                } @else {
+                  <span class="map-page__agency-location">{{ agencyService.selectedAgency()?.state }}</span>
+                }
               </div>
               <a routerLink="/" class="map-page__back">← Back</a>
             </div>
@@ -148,7 +152,7 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
       background: var(--color-primary-light);
       padding: 0.1rem 0.4rem;
       border-radius: var(--radius-sm);
-      margin-bottom: 0.2rem;
+      margin-right: 0.5rem;
     }
     .map-page__back {
       color: var(--color-primary);

@@ -34,12 +34,12 @@ export class GtfsService {
     this.error.set(null);
 
     forkJoin({
-      routes: this.http.get<GeoJSONFeatureCollection<Route>>(`${this.baseUrl}/${agencyId}/routes`),
+      routes: this.http.get<{ routes: Route[] }>(`${this.baseUrl}/${agencyId}/routes`),
       stops: this.http.get<GeoJSONFeatureCollection<Stop>>(`${this.baseUrl}/${agencyId}/stops`),
       trips: this.http.get<Record<string, string>>(`${this.baseUrl}/${agencyId}/trips`),
     }).subscribe({
       next: ({ routes, stops, trips }) => {
-        this.routes.set(routes.features.map((f) => f.properties));
+        this.routes.set(routes.routes);
         this.stops.set(stops.features.map((f) => f.properties));
         this.tripToRoute.set(trips);
         this.loading.set(false);

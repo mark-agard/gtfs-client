@@ -9,7 +9,7 @@ import type { Stop } from '@shared/models/stop.model';
 const STATIC_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 interface StaticData {
-  routes: GeoJSONFeatureCollection<Route>;
+  routes: Route[];
   stops: GeoJSONFeatureCollection<Stop>;
   shapes: GeoJSONFeatureCollection;
   trips: Record<string, string>;
@@ -20,7 +20,7 @@ export class GtfsStaticService {
 
   constructor(private readonly mobilityDb: MobilityDbService) {}
 
-  async getRoutes(agencyId: string): Promise<GeoJSONFeatureCollection<Route>> {
+  async getRoutes(agencyId: string): Promise<Route[]> {
     const data = await this.getOrFetch(agencyId);
     return data.routes;
   }
@@ -77,19 +77,24 @@ export class GtfsStaticService {
 
     await new Promise<void>((resolve, reject) => {
       const stream = Parse();
+      const bufferPromises: Promise<void>[] = [];
 
       stream.on('entry', (entry: any) => {
         if (entry.type === 'File') {
-          entry.buffer().then((content: Buffer) => {
-            files.set(entry.path, content);
-          });
+          bufferPromises.push(
+            entry.buffer().then((content: Buffer) => {
+              files.set(entry.path, content);
+            }),
+          );
         } else {
           entry.autodrain();
         }
       });
 
       stream.on('error', reject);
-      stream.on('close', resolve);
+      stream.on('close', () => {
+        Promise.all(bufferPromises).then(() => resolve()).catch(reject);
+      });
 
       stream.write(buffer);
       stream.end();
@@ -114,24 +119,18 @@ export class GtfsStaticService {
     });
   }
 
-  private async parseRoutes(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Route>> {
+  private async parseRoutes(buffer: Buffer | undefined): Promise<Route[]> {
     const records = await this.parseCsv(buffer);
 
-    const features = records.map((r) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'LineString' as const, coordinates: [] as [number, number][] },
-      properties: {
-        id: r.route_id,
-        agencyId: r.agency_id,
-        shortName: r.route_short_name ?? '',
-        longName: r.route_long_name ?? '',
-        type: parseInt(r.route_type ?? '3', 10),
-        color: r.route_color ?? 'FFFFFF',
-        textColor: r.route_text_color ?? '000000',
-      },
+    return records.map((r) => ({
+      id: r.route_id,
+      agencyId: r.agency_id,
+      shortName: r.route_short_name ?? '',
+      longName: r.route_long_name ?? '',
+      type: parseInt(r.route_type ?? '3', 10),
+      color: r.route_color ?? 'FFFFFF',
+      textColor: r.route_text_color ?? '000000',
     }));
-
-    return { type: 'FeatureCollection', features };
   }
 
   private async parseStops(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Stop>> {
@@ -172,7 +171,7 @@ export class GtfsStaticService {
 
     const records = await this.parseCsv(buffer);
 
-    const shapeMap = new Map<string, [number, number][]>();
+    const shapeMap = new Map<string, { seq: number; point: [number, number] }[]>();
     for (const r of records) {
       const shapeId = r.shape_id;
       if (!shapeId) continue;
@@ -183,13 +182,15 @@ export class GtfsStaticService {
       if (!shapeMap.has(shapeId)) {
         shapeMap.set(shapeId, []);
       }
-      const points = shapeMap.get(shapeId)!;
-      points.push(point);
+      shapeMap.get(shapeId)!.push({ seq, point });
     }
 
-    const features = Array.from(shapeMap.entries()).map(([shapeId, coords]) => ({
+    const features = Array.from(shapeMap.entries()).map(([shapeId, entries]) => ({
       type: 'Feature' as const,
-      geometry: { type: 'LineString' as const, coordinates: coords },
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: entries.sort((a, b) => a.seq - b.seq).map((e) => e.point),
+      },
       properties: {
         shapeId,
         routeId: shapeToRoute.get(shapeId) ?? '',

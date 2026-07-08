@@ -115,11 +115,14 @@ export class MapComponent implements OnDestroy {
   private routeSource = new VectorSource();
   private stopSource = new VectorSource();
   private vehicleSource = new VectorSource();
+  private routeColorMap = new globalThis.Map<string, string>();
 
   private readonly routeLayer = new VectorLayer({
     source: this.routeSource,
     style: (feature) => {
-      const color = feature.get('color') ?? '#3388ff';
+      const routeId = feature.get('routeId') as string;
+      const route = this.routeColorMap.get(routeId);
+      const color = route ? `#${route}` : '#3388ff';
       return new Style({
         stroke: new Stroke({ color, width: 3 }),
       });
@@ -181,6 +184,15 @@ export class MapComponent implements OnDestroy {
         'EPSG:3857',
       );
       this.map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+    });
+
+    effect(() => {
+      if (!this.mapReady()) return;
+      const routes = this.gtfsService.routes();
+      this.routeColorMap = new globalThis.Map(
+        routes.map((r) => [r.id, r.color] as [string, string]),
+      );
+      this.routeLayer.changed();
     });
 
     effect(() => {

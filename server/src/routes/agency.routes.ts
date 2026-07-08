@@ -46,7 +46,8 @@ export async function agencyRoutes(
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id/routes', async (request, reply) => {
     try {
-      return await gtfsStatic.getRoutes(request.params.id);
+      const routes = await gtfsStatic.getRoutes(request.params.id);
+      return { routes };
     } catch (err) {
       app.log.error(err);
       reply.status(502);
