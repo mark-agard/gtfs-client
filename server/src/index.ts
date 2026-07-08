@@ -2,77 +2,28 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import dotenv from 'dotenv';
+import { MobilityDbService } from './services/mobility-db.service.js';
+import { GtfsStaticService } from './services/gtfs-static.service.js';
+import { GtfsRealtimeService } from './services/gtfs-realtime.service.js';
+import { healthRoutes } from './routes/health.routes.js';
+import { agencyRoutes } from './routes/agency.routes.js';
 
 dotenv.config();
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST ?? '0.0.0.0';
 
-const app = Fastify({
-  logger: true,
-});
+const app = Fastify({ logger: true });
 
-await app.register(cors, {
-  origin: true,
-});
+const mobilityDb = new MobilityDbService();
+const gtfsStatic = new GtfsStaticService(mobilityDb);
+const gtfsRealtime = new GtfsRealtimeService(mobilityDb);
 
+await app.register(cors, { origin: true });
 await app.register(websocket);
 
-app.get('/api/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
-});
-
-app.get('/api/agencies', async () => {
-  // TODO: Proxy to Mobility Database API
-  return { agencies: [], total: 0 };
-});
-
-app.get('/api/agencies/:id', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Fetch agency detail from Mobility Database
-  return { id, message: 'Not implemented' };
-});
-
-app.get('/api/agencies/:id/routes', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Return GeoJSON routes for agency
-  return { id, type: 'FeatureCollection', features: [] };
-});
-
-app.get('/api/agencies/:id/stops', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Return GeoJSON stops for agency
-  return { id, type: 'FeatureCollection', features: [] };
-});
-
-app.get('/api/agencies/:id/shapes', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Return GeoJSON shapes for agency
-  return { id, type: 'FeatureCollection', features: [] };
-});
-
-app.get('/api/agencies/:id/trips', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Return trip_id -> route_id mapping
-  return { id, trips: {} };
-});
-
-app.get('/api/agencies/:id/alerts', async (request) => {
-  const { id } = request.params as { id: string };
-  // TODO: Return service alerts for agency
-  return { id, alerts: [] };
-});
-
-app.get('/api/agencies/:id/realtime', { websocket: true }, (socket, request) => {
-  const { id } = request.params as { id: string };
-  app.log.info(`WebSocket connected for agency ${id}`);
-
-  socket.on('close', () => {
-    app.log.info(`WebSocket disconnected for agency ${id}`);
-  });
-
-  // TODO: Start polling GTFS-RT feed and push updates
-});
+await healthRoutes(app);
+await agencyRoutes(app, { mobilityDb, gtfsStatic, gtfsRealtime });
 
 const start = async () => {
   try {

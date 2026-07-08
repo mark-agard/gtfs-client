@@ -1,0 +1,200 @@
+import { parse } from 'csv-parse';
+import { Parse } from 'unzipper';
+import { Cache } from '../utils/cache.js';
+import type { MobilityDbService } from './mobility-db.service.js';
+import type { GeoJSONFeatureCollection } from '@shared/models/geojson.model';
+import type { Route } from '@shared/models/route.model';
+import type { Stop } from '@shared/models/stop.model';
+
+const STATIC_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+interface StaticData {
+  routes: GeoJSONFeatureCollection<Route>;
+  stops: GeoJSONFeatureCollection<Stop>;
+  shapes: GeoJSONFeatureCollection;
+  trips: Record<string, string>;
+}
+
+export class GtfsStaticService {
+  private readonly cache = new Cache<StaticData>(STATIC_CACHE_TTL);
+
+  constructor(private readonly mobilityDb: MobilityDbService) {}
+
+  async getRoutes(agencyId: string): Promise<GeoJSONFeatureCollection<Route>> {
+    const data = await this.getOrFetch(agencyId);
+    return data.routes;
+  }
+
+  async getStops(agencyId: string): Promise<GeoJSONFeatureCollection<Stop>> {
+    const data = await this.getOrFetch(agencyId);
+    return data.stops;
+  }
+
+  async getShapes(agencyId: string): Promise<GeoJSONFeatureCollection> {
+    const data = await this.getOrFetch(agencyId);
+    return data.shapes;
+  }
+
+  async getTrips(agencyId: string): Promise<Record<string, string>> {
+    const data = await this.getOrFetch(agencyId);
+    return data.trips;
+  }
+
+  private async getOrFetch(agencyId: string): Promise<StaticData> {
+    const cached = this.cache.get(agencyId);
+    if (cached) return cached;
+
+    const downloadUrl = await this.mobilityDb.getFeedDownloadUrl(agencyId);
+    if (!downloadUrl) {
+      throw new Error(`No download URL available for agency ${agencyId}`);
+    }
+
+    const data = await this.downloadAndParse(downloadUrl);
+    this.cache.set(agencyId, data);
+    return data;
+  }
+
+  private async downloadAndParse(url: string): Promise<StaticData> {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to download GTFS feed: ${res.status}`);
+    }
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const files = await this.unzipToMap(buffer);
+
+    const routes = await this.parseRoutes(files.get('routes.txt'));
+    const stops = await this.parseStops(files.get('stops.txt'));
+    const shapes = await this.parseShapes(files.get('shapes.txt'));
+    const trips = await this.parseTrips(files.get('trips.txt'));
+
+    return { routes, stops, shapes, trips };
+  }
+
+  private async unzipToMap(buffer: Buffer): Promise<Map<string, Buffer>> {
+    const files = new Map<string, Buffer>();
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = Parse();
+
+      stream.on('entry', (entry: any) => {
+        if (entry.type === 'File') {
+          entry.buffer().then((content: Buffer) => {
+            files.set(entry.path, content);
+          });
+        } else {
+          entry.autodrain();
+        }
+      });
+
+      stream.on('error', reject);
+      stream.on('close', resolve);
+
+      stream.write(buffer);
+      stream.end();
+    });
+
+    return files;
+  }
+
+  private parseCsv(buffer: Buffer | undefined): Promise<Record<string, string>[]> {
+    if (!buffer) return Promise.resolve([]);
+
+    return new Promise((resolve, reject) => {
+      const records: Record<string, string>[] = [];
+      parse(buffer.toString('utf-8'), {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      })
+        .on('data', (record: Record<string, string>) => records.push(record))
+        .on('error', reject)
+        .on('end', () => resolve(records));
+    });
+  }
+
+  private async parseRoutes(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Route>> {
+    const records = await this.parseCsv(buffer);
+
+    const features = records.map((r) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'LineString' as const, coordinates: [] as [number, number][] },
+      properties: {
+        id: r.route_id,
+        agencyId: r.agency_id,
+        shortName: r.route_short_name ?? '',
+        longName: r.route_long_name ?? '',
+        type: parseInt(r.route_type ?? '3', 10),
+        color: r.route_color ?? 'FFFFFF',
+        textColor: r.route_text_color ?? '000000',
+      },
+    }));
+
+    return { type: 'FeatureCollection', features };
+  }
+
+  private async parseStops(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Stop>> {
+    const records = await this.parseCsv(buffer);
+
+    const features = records
+      .filter((r) => r.stop_lat && r.stop_lon)
+      .map((r) => ({
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [parseFloat(r.stop_lon), parseFloat(r.stop_lat)] as [number, number],
+        },
+        properties: {
+          id: r.stop_id,
+          name: r.stop_name ?? '',
+          lat: parseFloat(r.stop_lat),
+          lon: parseFloat(r.stop_lon),
+          locationType: r.location_type ? parseInt(r.location_type, 10) : undefined,
+        },
+      }));
+
+    return { type: 'FeatureCollection', features };
+  }
+
+  private async parseShapes(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection> {
+    if (!buffer) return { type: 'FeatureCollection', features: [] };
+
+    const records = await this.parseCsv(buffer);
+
+    const shapeMap = new Map<string, [number, number][]>();
+    for (const r of records) {
+      const shapeId = r.shape_id;
+      if (!shapeId) continue;
+
+      const point: [number, number] = [parseFloat(r.shape_pt_lon), parseFloat(r.shape_pt_lat)];
+      const seq = parseInt(r.shape_pt_sequence ?? '0', 10);
+
+      if (!shapeMap.has(shapeId)) {
+        shapeMap.set(shapeId, []);
+      }
+      const points = shapeMap.get(shapeId)!;
+      points.push(point);
+    }
+
+    const features = Array.from(shapeMap.entries()).map(([shapeId, coords]) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'LineString' as const, coordinates: coords },
+      properties: { shapeId },
+    }));
+
+    return { type: 'FeatureCollection', features };
+  }
+
+  private async parseTrips(buffer: Buffer | undefined): Promise<Record<string, string>> {
+    const records = await this.parseCsv(buffer);
+
+    const trips: Record<string, string> = {};
+    for (const r of records) {
+      if (r.trip_id && r.route_id) {
+        trips[r.trip_id] = r.route_id;
+      }
+    }
+
+    return trips;
+  }
+}
