@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
@@ -8,10 +9,11 @@ import { GtfsRealtimeService } from './services/gtfs-realtime.service.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { agencyRoutes } from './routes/agency.routes.js';
 
-dotenv.config();
+dotenv.config({ path: resolve(process.cwd(), '..', '.env') });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST ?? '0.0.0.0';
+const CLIENT_URL = process.env.CLIENT_URL ?? 'http://localhost:4200';
 
 const app = Fastify({ logger: true });
 
@@ -19,7 +21,7 @@ const mobilityDb = new MobilityDbService();
 const gtfsStatic = new GtfsStaticService(mobilityDb);
 const gtfsRealtime = new GtfsRealtimeService(mobilityDb);
 
-await app.register(cors, { origin: true });
+await app.register(cors, { origin: [CLIENT_URL] });
 await app.register(websocket);
 
 await healthRoutes(app);

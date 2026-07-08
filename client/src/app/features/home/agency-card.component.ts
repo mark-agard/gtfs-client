@@ -10,7 +10,6 @@ import { Agency } from '@shared/models/agency.model';
         <span class="agency-card__location">{{ agency().location }}, {{ agency().state }}</span>
       </div>
       <div class="agency-card__body">
-        <span class="agency-card__routes">{{ agency().routeCount }} routes</span>
         @if (agency().hasRealtime) {
           <span class="agency-card__badge agency-card__badge--live">Live</span>
         } @else {
@@ -46,10 +45,6 @@ import { Agency } from '@shared/models/agency.model';
       display: flex;
       align-items: center;
       gap: 0.5rem;
-    }
-    .agency-card__routes {
-      color: #555;
-      font-size: 0.875rem;
     }
     .agency-card__badge {
       padding: 0.125rem 0.5rem;

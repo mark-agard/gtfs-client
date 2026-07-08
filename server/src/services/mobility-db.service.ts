@@ -32,10 +32,10 @@ export class MobilityDbService {
     }
 
     const refreshToken = await this.getRefreshToken();
-    const res = await fetch(`${MOBILITY_DB_API}/v1/secure_tokens`, {
+    const res = await fetch(`${MOBILITY_DB_API}/v1/tokens`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
     });
 
     if (!res.ok) {
@@ -44,7 +44,7 @@ export class MobilityDbService {
 
     const data = (await res.json()) as TokenResponse;
     this.accessToken = data.access_token;
-    this.tokenExpiresAt = Date.now() + data.expires_in * 1000;
+    this.tokenExpiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
   }
 
   private async apiGet<T>(path: string): Promise<T> {
@@ -60,27 +60,63 @@ export class MobilityDbService {
     return res.json() as Promise<T>;
   }
 
-  async listUsAgencies(): Promise<Agency[]> {
-    const cached = this.agencyCache.get('us-agencies');
-    if (cached) return cached;
+  async listUsAgencies(
+    page = 1,
+    pageSize = 50,
+    search?: string,
+  ): Promise<{ agencies: Agency[]; total: number }> {
+    let cached = this.agencyCache.get('us-agencies');
 
-    // TODO: Implement full pagination — API may return results in pages
-    const data = await this.apiGet<{ results: MobilityDbFeed[] }>(
-      '/v1/gtfs_feeds?status=active&country=US&limit=1000',
-    );
+    if (!cached) {
+      const allFeeds: MobilityDbFeed[] = [];
+      const limit = 1000;
+      let offset = 0;
 
-    const agencies: Agency[] = data.results.map((feed) => ({
-      id: feed.id,
-      name: feed.provider,
-      location: feed.location?.municipality ?? 'Unknown',
-      state: feed.location?.subdivision_name ?? 'Unknown',
-      routeCount: 0,
-      hasRealtime: false,
-      feedStatus: feed.status === 'active' ? 'active' : 'inactive',
-    }));
+      while (true) {
+        const batch = await this.apiGet<MobilityDbFeed[]>(
+          `/v1/gtfs_feeds?status=active&limit=${limit}&offset=${offset}`,
+        );
+        allFeeds.push(...batch);
+        if (batch.length < limit) break;
+        offset += limit;
+      }
 
-    this.agencyCache.set('us-agencies', agencies);
-    return agencies;
+      cached = allFeeds
+        .filter(
+          (feed) =>
+            feed.locations?.some((l) => l.country_code === 'US') &&
+            feed.latest_dataset?.hosted_url &&
+            feed.bounding_box,
+        )
+        .map((feed) => ({
+          id: feed.id,
+          name: feed.provider,
+          location: feed.locations?.[0]?.municipality ?? 'Unknown',
+          state: feed.locations?.[0]?.subdivision_name ?? 'Unknown',
+          routeCount: 0,
+          hasRealtime: false,
+          feedStatus: feed.status === 'active' ? 'active' : 'inactive',
+        }));
+
+      this.agencyCache.set('us-agencies', cached);
+    }
+
+    let filtered = cached;
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = cached.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.location.toLowerCase().includes(q) ||
+          a.state.toLowerCase().includes(q),
+      );
+    }
+
+    const start = (page - 1) * pageSize;
+    return {
+      agencies: filtered.slice(start, start + pageSize),
+      total: filtered.length,
+    };
   }
 
   async getAgencyDetail(id: string): Promise<AgencyDetail> {
@@ -88,10 +124,10 @@ export class MobilityDbService {
 
     let hasRealtime = false;
     try {
-      const rtFeeds = await this.apiGet<{ results: MobilityDbRtFeed[] }>(
+      const rtFeeds = await this.apiGet<MobilityDbRtFeed[]>(
         `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
       );
-      hasRealtime = rtFeeds.results.length > 0;
+      hasRealtime = rtFeeds.length > 0;
     } catch {
       hasRealtime = false;
     }
@@ -99,19 +135,19 @@ export class MobilityDbService {
     return {
       id: feed.id,
       name: feed.provider,
-      url: feed.provider_url ?? '',
-      timezone: feed.timezone ?? 'America/New_York',
-      location: feed.location?.municipality ?? 'Unknown',
-      state: feed.location?.subdivision_name ?? 'Unknown',
+      url: feed.source_info?.producer_url ?? '',
+      timezone: feed.latest_dataset?.agency_timezone ?? 'America/New_York',
+      location: feed.locations?.[0]?.municipality ?? 'Unknown',
+      state: feed.locations?.[0]?.subdivision_name ?? 'Unknown',
       routeCount: 0,
       hasRealtime,
       feedStatus: feed.status === 'active' ? 'active' : 'inactive',
       boundingBox: feed.bounding_box
         ? {
-            minLat: feed.bounding_box.min_latitude,
-            minLon: feed.bounding_box.min_longitude,
-            maxLat: feed.bounding_box.max_latitude,
-            maxLon: feed.bounding_box.max_longitude,
+            minLat: feed.bounding_box.minimum_latitude,
+            minLon: feed.bounding_box.minimum_longitude,
+            maxLat: feed.bounding_box.maximum_latitude,
+            maxLon: feed.bounding_box.maximum_longitude,
           }
         : undefined,
     };
@@ -119,15 +155,15 @@ export class MobilityDbService {
 
   async getFeedDownloadUrl(id: string): Promise<string | undefined> {
     const feed = await this.apiGet<MobilityDbFeed>(`/v1/gtfs_feeds/${id}`);
-    return feed.latest_dataset?.hosted_url ?? feed.direct_download_url;
+    return feed.latest_dataset?.hosted_url ?? feed.source_info?.producer_url;
   }
 
   async getRealtimeFeedUrls(id: string): Promise<string[]> {
     try {
-      const data = await this.apiGet<{ results: MobilityDbRtFeed[] }>(
+      const feeds = await this.apiGet<MobilityDbRtFeed[]>(
         `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
       );
-      return data.results.map((f) => f.feed_url).filter((u): u is string => !!u);
+      return feeds.map((f) => f.feed_url).filter((u): u is string => !!u);
     } catch {
       return [];
     }
@@ -137,23 +173,24 @@ export class MobilityDbService {
 interface MobilityDbFeed {
   id: string;
   provider: string;
-  provider_url?: string;
   status: string;
-  timezone?: string;
-  direct_download_url?: string;
+  source_info?: {
+    producer_url?: string;
+  };
   latest_dataset?: {
     hosted_url?: string;
+    agency_timezone?: string;
   };
-  location?: {
+  locations?: {
     municipality?: string;
     subdivision_name?: string;
-    country?: string;
-  };
+    country_code?: string;
+  }[];
   bounding_box?: {
-    min_latitude: number;
-    min_longitude: number;
-    max_latitude: number;
-    max_longitude: number;
+    minimum_latitude: number;
+    minimum_longitude: number;
+    maximum_latitude: number;
+    maximum_longitude: number;
   };
 }
 

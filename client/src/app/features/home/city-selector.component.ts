@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AgencyService } from '../../core/services/agency.service';
 import { Agency } from '@shared/models/agency.model';
@@ -13,7 +13,6 @@ import { AgencyCardComponent } from './agency-card.component';
         type="text"
         class="city-selector__search"
         placeholder="Search by city, agency, or state..."
-        [value]="searchQuery()"
         (input)="onSearch($event)"
       />
 
@@ -26,12 +25,12 @@ import { AgencyCardComponent } from './agency-card.component';
       }
 
       <div class="city-selector__grid">
-        @for (agency of filteredAgencies(); track agency.id) {
+        @for (agency of agencyService.agencies(); track agency.id) {
           <app-agency-card [agency]="agency" (select)="onSelect($event)" />
         }
       </div>
 
-      @if (!agencyService.loading() && filteredAgencies().length === 0) {
+      @if (!agencyService.loading() && agencyService.agencies().length === 0) {
         <div class="city-selector__empty">No agencies found</div>
       }
     </div>
@@ -69,26 +68,18 @@ export class CitySelectorComponent {
   private readonly router = inject(Router);
   protected readonly agencyService = inject(AgencyService);
 
-  private readonly _searchQuery = signal('');
-
-  readonly searchQuery = this._searchQuery.asReadonly();
-
-  readonly filteredAgencies = computed(() => {
-    const query = this.searchQuery().toLowerCase().trim();
-    const agencies = this.agencyService.agencies();
-
-    if (!query) return agencies;
-
-    return agencies.filter(
-      (a) =>
-        a.name.toLowerCase().includes(query) ||
-        a.location.toLowerCase().includes(query) ||
-        a.state.toLowerCase().includes(query),
-    );
-  });
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   onSearch(event: Event): void {
-    this._searchQuery.set((event.target as HTMLInputElement).value);
+    const query = (event.target as HTMLInputElement).value;
+
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
+
+    this.searchTimer = setTimeout(() => {
+      this.agencyService.fetchAgencies(1, 50, query || undefined);
+    }, 300);
   }
 
   onSelect(agency: Agency): void {

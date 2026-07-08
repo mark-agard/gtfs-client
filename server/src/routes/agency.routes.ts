@@ -15,16 +15,22 @@ export async function agencyRoutes(
 ): Promise<void> {
   const { mobilityDb, gtfsStatic, gtfsRealtime } = ctx;
 
-  app.get('/api/agencies', async (_request, reply) => {
-    try {
-      const agencies = await mobilityDb.listUsAgencies();
-      return { agencies, total: agencies.length };
-    } catch (err) {
-      app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to fetch agencies' };
-    }
-  });
+  app.get<{ Querystring: { page?: string; pageSize?: string; search?: string } }>(
+    '/api/agencies',
+    async (request, reply) => {
+      try {
+        const page = parseInt(request.query.page ?? '1', 10);
+        const pageSize = parseInt(request.query.pageSize ?? '50', 10);
+        const search = request.query.search;
+        const result = await mobilityDb.listUsAgencies(page, pageSize, search);
+        return result;
+      } catch (err) {
+        app.log.error(err);
+        reply.status(502);
+        return { error: 'Failed to fetch agencies' };
+      }
+    },
+  );
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id', async (request, reply) => {
     try {
