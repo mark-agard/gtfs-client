@@ -1,0 +1,17 @@
+{
+  "name": "gtfs-client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm start",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "typecheck": "cd server && npm run typecheck && cd ../client && npx ng build --configuration development"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "gtfs-client-server",
+  "version": "0.1.0",
+  "description": "Backend API for GTFS Client — serves agency catalog, static GTFS data, and realtime transit updates",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/websocket": "^11.0.0",
+    "@fastify/static": "^8.0.0",
+    "gtfs-realtime-bindings": "^0.0.6",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}
