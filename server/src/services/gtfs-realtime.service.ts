@@ -1,15 +1,26 @@
-import * as GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+import { createRequire } from 'module';
 import type { MobilityDbService } from './mobility-db.service.js';
 import type { VehiclePosition, ServiceAlert } from '@shared/models/vehicle-position.model';
 
+const require = createRequire(import.meta.url);
+const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
+
 const POLL_INTERVAL_MS = 10000;
+
+type UpdateListener = (positions: VehiclePosition[], alerts: ServiceAlert[]) => void;
+
+interface RtFeed {
+  url: string;
+  entityType: string;
+}
 
 interface AgencyPoller {
   interval: ReturnType<typeof setInterval>;
   clientCount: number;
   vehiclePositions: VehiclePosition[];
   alerts: ServiceAlert[];
-  feedUrls: string[];
+  feeds: RtFeed[];
+  listeners: Set<UpdateListener>;
 }
 
 export class GtfsRealtimeService {
@@ -17,17 +28,18 @@ export class GtfsRealtimeService {
 
   constructor(private readonly mobilityDb: MobilityDbService) {}
 
-  async subscribe(agencyId: string): Promise<AgencyPoller> {
+  async subscribe(agencyId: string, listener: UpdateListener): Promise<AgencyPoller> {
     let poller = this.pollers.get(agencyId);
 
     if (!poller) {
-      const feedUrls = await this.mobilityDb.getRealtimeFeedUrls(agencyId);
+      const feeds = await this.mobilityDb.getRealtimeFeedUrls(agencyId);
       poller = {
         interval: setInterval(() => this.poll(agencyId), POLL_INTERVAL_MS),
         clientCount: 0,
         vehiclePositions: [],
         alerts: [],
-        feedUrls,
+        feeds,
+        listeners: new Set(),
       };
       this.pollers.set(agencyId, poller);
 
@@ -35,13 +47,15 @@ export class GtfsRealtimeService {
     }
 
     poller.clientCount++;
+    poller.listeners.add(listener);
     return poller;
   }
 
-  unsubscribe(agencyId: string): void {
+  unsubscribe(agencyId: string, listener: UpdateListener): void {
     const poller = this.pollers.get(agencyId);
     if (!poller) return;
 
+    poller.listeners.delete(listener);
     poller.clientCount--;
     if (poller.clientCount <= 0) {
       clearInterval(poller.interval);
@@ -58,22 +72,22 @@ export class GtfsRealtimeService {
 
   private async poll(agencyId: string): Promise<void> {
     const poller = this.pollers.get(agencyId);
-    if (!poller || poller.feedUrls.length === 0) return;
+    if (!poller || poller.feeds.length === 0) return;
 
     try {
       const positions: VehiclePosition[] = [];
       const alerts: ServiceAlert[] = [];
 
-      for (const feedUrl of poller.feedUrls) {
-        const res = await fetch(feedUrl);
+      for (const feed of poller.feeds) {
+        const res = await fetch(feed.url);
         if (!res.ok) continue;
 
         const buffer = Buffer.from(await res.arrayBuffer());
-        const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
+        const msg = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
           new Uint8Array(buffer),
         );
 
-        for (const entity of feed.entity) {
+        for (const entity of msg.entity) {
           if (entity.vehicle) {
             const v = entity.vehicle;
             if (v.position?.latitude && v.position?.longitude) {
@@ -116,6 +130,10 @@ export class GtfsRealtimeService {
 
       poller.vehiclePositions = positions;
       poller.alerts = alerts;
+
+      for (const listener of poller.listeners) {
+        listener(positions, alerts);
+      }
     } catch (err) {
       console.error(`Failed to poll realtime feed for agency ${agencyId}:`, err);
     }

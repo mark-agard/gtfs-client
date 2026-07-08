@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { MobilityDbService } from '../services/mobility-db.service.js';
 import type { GtfsStaticService } from '../services/gtfs-static.service.js';
 import type { GtfsRealtimeService } from '../services/gtfs-realtime.service.js';
+import type { VehiclePosition, ServiceAlert } from '@shared/models/vehicle-position.model';
 
 interface AgencyRouteContext {
   mobilityDb: MobilityDbService;
@@ -101,21 +102,25 @@ export async function agencyRoutes(
       const agencyId = request.params.id;
       app.log.info(`WebSocket connected for agency ${agencyId}`);
 
+      const listener = (positions: VehiclePosition[], alerts: ServiceAlert[]) => {
+        if (positions.length > 0) {
+          socket.send(JSON.stringify({ type: 'update', positions }));
+        }
+        if (alerts.length > 0) {
+          socket.send(JSON.stringify({ type: 'alerts', alerts }));
+        }
+      };
+
       try {
-        await gtfsRealtime.subscribe(agencyId);
+        await gtfsRealtime.subscribe(agencyId, listener);
 
         const snapshot = gtfsRealtime.getSnapshot(agencyId);
         if (snapshot) {
           socket.send(JSON.stringify({ type: 'snapshot', positions: snapshot.positions }));
-          socket.send(JSON.stringify({ type: 'alerts', alerts: snapshot.alerts }));
-        }
-
-        const updateInterval = setInterval(() => {
-          const snap = gtfsRealtime.getSnapshot(agencyId);
-          if (snap && snap.positions.length > 0) {
-            socket.send(JSON.stringify({ type: 'update', positions: snap.positions }));
+          if (snapshot.alerts.length > 0) {
+            socket.send(JSON.stringify({ type: 'alerts', alerts: snapshot.alerts }));
           }
-        }, 10000);
+        }
 
         socket.on('message', (raw: Buffer) => {
           try {
@@ -129,8 +134,7 @@ export async function agencyRoutes(
         });
 
         socket.on('close', () => {
-          clearInterval(updateInterval);
-          gtfsRealtime.unsubscribe(agencyId);
+          gtfsRealtime.unsubscribe(agencyId, listener);
           app.log.info(`WebSocket disconnected for agency ${agencyId}`);
         });
       } catch (err) {

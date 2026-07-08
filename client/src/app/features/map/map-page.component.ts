@@ -19,7 +19,19 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
         </div>
       } @else if (agencyService.selectedAgency()) {
         <div class="map-page__main">
-          <app-map />
+          <div class="map-page__map-area">
+            @if (realtimeService.reconnecting()) {
+              <div class="map-page__banner map-page__banner--reconnecting">
+                Reconnecting…
+              </div>
+            }
+            @if (realtimeService.connected() === false && realtimeService.reconnecting() === false && agencyService.selectedAgency()?.hasRealtime) {
+              <div class="map-page__banner map-page__banner--lost">
+                Connection lost. <button (click)="realtimeService.retry()">Retry</button>
+              </div>
+            }
+            <app-map />
+          </div>
           <div class="map-page__sidebar">
             <div class="map-page__sidebar-header">
               <h2>{{ agencyService.selectedAgency()?.name }}</h2>
@@ -44,6 +56,41 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
       display: flex;
       flex: 1;
       overflow: hidden;
+    }
+    .map-page__map-area {
+      display: flex;
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+    .map-page__banner {
+      position: absolute;
+      top: 0.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      padding: 0.375rem 1rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .map-page__banner--reconnecting {
+      background: #fff3e0;
+      color: #e65100;
+    }
+    .map-page__banner--lost {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .map-page__banner--lost button {
+      background: #c62828;
+      color: #fff;
+      border: none;
+      padding: 0.125rem 0.5rem;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: 0.25rem;
     }
     .map-page__sidebar {
       width: 320px;
@@ -85,7 +132,7 @@ export class MapPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   protected readonly agencyService = inject(AgencyService);
   private readonly gtfsService = inject(GtfsService);
-  private readonly realtimeService = inject(RealtimeService);
+  protected readonly realtimeService = inject(RealtimeService);
 
   ngOnInit(): void {
     const agencyId = this.route.snapshot.paramMap.get('id');

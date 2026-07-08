@@ -17,7 +17,7 @@ import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, transformExtent } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Style, Stroke, Circle as CircleStyle, Fill } from 'ol/style';
+import { Style, Stroke, Circle as CircleStyle, Fill, RegularShape } from 'ol/style';
 import { Feature } from 'ol';
 import { Point } from 'ol/geom';
 import { GtfsService } from '../../../core/services/gtfs.service';
@@ -166,9 +166,12 @@ export class MapComponent implements OnDestroy {
 
       feature.setStyle(
         new Style({
-          image: new CircleStyle({
-            radius: 6,
+          image: new RegularShape({
+            points: 3,
+            radius: 8,
+            rotation: (pos.bearing * Math.PI) / 180,
             fill: new Fill({ color: '#1976d2' }),
+            stroke: new Stroke({ color: '#fff', width: 1 }),
           }),
         }),
       );

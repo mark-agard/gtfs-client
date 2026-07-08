@@ -124,9 +124,7 @@ export class MobilityDbService {
 
     let hasRealtime = false;
     try {
-      const rtFeeds = await this.apiGet<MobilityDbRtFeed[]>(
-        `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
-      );
+      const rtFeeds = await this.getRealtimeFeedUrls(id);
       hasRealtime = rtFeeds.length > 0;
     } catch {
       hasRealtime = false;
@@ -158,12 +156,18 @@ export class MobilityDbService {
     return feed.latest_dataset?.hosted_url ?? feed.source_info?.producer_url;
   }
 
-  async getRealtimeFeedUrls(id: string): Promise<string[]> {
+  async getRealtimeFeedUrls(id: string): Promise<{ url: string; entityType: string }[]> {
     try {
       const feeds = await this.apiGet<MobilityDbRtFeed[]>(
         `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
       );
-      return feeds.map((f) => f.feed_url).filter((u): u is string => !!u);
+      return feeds
+        .filter((f) => !f.source_info?.authentication_type)
+        .map((f) => ({
+          url: f.source_info?.producer_url ?? '',
+          entityType: f.entity_types?.[0] ?? 'vp',
+        }))
+        .filter((f) => f.url.length > 0);
     } catch {
       return [];
     }
@@ -196,6 +200,10 @@ interface MobilityDbFeed {
 
 interface MobilityDbRtFeed {
   id: string;
-  feed_url?: string;
   entity_types?: string[];
+  source_info?: {
+    producer_url?: string;
+    authentication_type?: number;
+    api_key_parameter_name?: string;
+  };
 }
