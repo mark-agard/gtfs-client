@@ -37,6 +37,9 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
             <div class="map-page__sidebar-header">
               <div>
                 <h2>{{ agencyService.selectedAgency()?.name }}</h2>
+                @if (agencyService.selectedAgency()?.feedName) {
+                  <span class="map-page__feed-name">{{ agencyService.selectedAgency()?.feedName }}</span>
+                }
                 <span class="map-page__agency-location">
                   {{ agencyService.selectedAgency()?.location }}, {{ agencyService.selectedAgency()?.state }}
                 </span>
@@ -136,6 +139,16 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
     .map-page__agency-location {
       font-size: 0.8rem;
       color: var(--color-text-muted);
+    }
+    .map-page__feed-name {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--color-primary);
+      background: var(--color-primary-light);
+      padding: 0.1rem 0.4rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.2rem;
     }
     .map-page__back {
       color: var(--color-primary);

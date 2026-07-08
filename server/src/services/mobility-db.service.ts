@@ -88,15 +88,41 @@ export class MobilityDbService {
             feed.latest_dataset?.hosted_url &&
             feed.bounding_box,
         )
-        .map((feed) => ({
-          id: feed.id,
-          name: feed.provider,
-          location: feed.locations?.[0]?.municipality ?? 'Unknown',
-          state: feed.locations?.[0]?.subdivision_name ?? 'Unknown',
-          routeCount: 0,
-          hasRealtime: false,
-          feedStatus: feed.status === 'active' ? 'active' : 'inactive',
-        }));
+        .map((feed) => {
+          const usLocations = (feed.locations ?? []).filter((l) => l.country_code === 'US');
+          const states = [...new Set(usLocations.map((l) => l.subdivision_name).filter((s): s is string => !!s))];
+          const stateAbbrev: Record<string, string> = {
+            'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+            'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT',
+            'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL',
+            'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL',
+            'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY',
+            'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+            'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN',
+            'Mississippi': 'MS', 'Missouri': 'MO', 'Montana': 'MT',
+            'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH',
+            'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+            'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+            'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA',
+            'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD',
+            'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+            'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+            'Wisconsin': 'WI', 'Wyoming': 'WY',
+          };
+          const stateList = states.map((s) => stateAbbrev[s] ?? s).sort().join(' · ');
+          const isMultiState = states.length > 1;
+
+          return {
+            id: feed.id,
+            name: feed.provider,
+            feedName: feed.feed_name ?? '',
+            location: isMultiState ? '' : (usLocations[0]?.municipality ?? 'Unknown'),
+            state: stateList || 'Unknown',
+            routeCount: 0,
+            hasRealtime: false,
+            feedStatus: feed.status === 'active' ? 'active' : 'inactive',
+          };
+        });
 
       this.agencyCache.set('us-agencies', cached);
     }
@@ -133,6 +159,7 @@ export class MobilityDbService {
     return {
       id: feed.id,
       name: feed.provider,
+      feedName: feed.feed_name ?? '',
       url: feed.source_info?.producer_url ?? '',
       timezone: feed.latest_dataset?.agency_timezone ?? 'America/New_York',
       location: feed.locations?.[0]?.municipality ?? 'Unknown',
@@ -177,6 +204,7 @@ export class MobilityDbService {
 interface MobilityDbFeed {
   id: string;
   provider: string;
+  feed_name?: string;
   status: string;
   source_info?: {
     producer_url?: string;

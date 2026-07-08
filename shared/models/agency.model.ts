@@ -1,6 +1,7 @@
 export interface Agency {
   id: string;
   name: string;
+  feedName: string;
   location: string;
   state: string;
   routeCount: number;
@@ -11,6 +12,7 @@ export interface Agency {
 export interface AgencyDetail {
   id: string;
   name: string;
+  feedName: string;
   url: string;
   timezone: string;
   location: string;

@@ -7,13 +7,20 @@ import { Agency } from '@shared/models/agency.model';
     <div class="agency-card" (click)="select.emit(agency())">
       <div class="agency-card__header">
         <h3 class="agency-card__name">{{ agency().name }}</h3>
-        <span class="agency-card__location">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          {{ agency().location }}, {{ agency().state }}
-        </span>
+        @if (agency().feedName) {
+          <span class="agency-card__feed-name">{{ agency().feedName }}</span>
+        }
+        @if (agency().location) {
+          <span class="agency-card__location">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {{ agency().location }}, {{ agency().state }}
+          </span>
+        } @else {
+          <span class="agency-card__location">{{ agency().state }}</span>
+        }
       </div>
       <div class="agency-card__footer">
         @if (agency().hasRealtime) {
@@ -22,7 +29,6 @@ import { Agency } from '@shared/models/agency.model';
             Live tracking
           </span>
         }
-        <span class="agency-card__arrow">→</span>
       </div>
     </div>
   `,
@@ -55,6 +61,16 @@ import { Agency } from '@shared/models/agency.model';
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+    .agency-card__feed-name {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-primary);
+      background: var(--color-primary-light);
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.375rem;
     }
     .agency-card__location {
       display: flex;
@@ -91,15 +107,6 @@ import { Agency } from '@shared/models/agency.model';
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
-    }
-    .agency-card__arrow {
-      color: var(--color-text-muted);
-      font-size: 1.1rem;
-      transition: transform var(--transition), color var(--transition);
-    }
-    .agency-card:hover .agency-card__arrow {
-      transform: translateX(3px);
-      color: var(--color-primary);
     }
   `],
 })
