@@ -123,9 +123,11 @@ export class MobilityDbService {
     const feed = await this.apiGet<MobilityDbFeed>(`/v1/gtfs_feeds/${id}`);
 
     let hasRealtime = false;
+    let realtimeStatus: 'available' | 'requires_auth' | 'none' = 'none';
     try {
-      const rtFeeds = await this.getRealtimeFeedUrls(id);
-      hasRealtime = rtFeeds.length > 0;
+      const rtInfo = await this.getRealtimeFeedInfo(id);
+      hasRealtime = rtInfo.accessible.length > 0;
+      realtimeStatus = hasRealtime ? 'available' : (rtInfo.authRequired ? 'requires_auth' : 'none');
     } catch {
       hasRealtime = false;
     }
@@ -139,6 +141,7 @@ export class MobilityDbService {
       ...this.deriveLocation(feed.locations),
       routeCount: 0,
       hasRealtime,
+      realtimeStatus,
       feedStatus: feed.status === 'active' ? 'active' : 'inactive',
       boundingBox: feed.bounding_box
         ? {
@@ -187,19 +190,31 @@ export class MobilityDbService {
   }
 
   async getRealtimeFeedUrls(id: string): Promise<{ url: string; entityType: string }[]> {
+    const result = await this.getRealtimeFeedInfo(id);
+    return result.accessible;
+  }
+
+  async getRealtimeFeedInfo(id: string): Promise<{
+    accessible: { url: string; entityType: string }[];
+    authRequired: boolean;
+  }> {
     try {
       const feeds = await this.apiGet<MobilityDbRtFeed[]>(
         `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
       );
-      return feeds
+      const accessible = feeds
         .filter((f) => !f.source_info?.authentication_type)
         .map((f) => ({
           url: f.source_info?.producer_url ?? '',
           entityType: f.entity_types?.[0] ?? 'vp',
         }))
         .filter((f) => f.url.length > 0);
+
+      const hasAuthFeeds = feeds.some((f) => f.source_info?.authentication_type);
+
+      return { accessible, authRequired: accessible.length === 0 && hasAuthFeeds };
     } catch {
-      return [];
+      return { accessible: [], authRequired: false };
     }
   }
 }

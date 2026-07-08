@@ -13,6 +13,7 @@ interface StaticData {
   stops: GeoJSONFeatureCollection<Stop>;
   shapes: GeoJSONFeatureCollection;
   trips: Record<string, string>;
+  stopToRoutes: Record<string, string[]>;
 }
 
 export class GtfsStaticService {
@@ -38,6 +39,11 @@ export class GtfsStaticService {
   async getTrips(agencyId: string): Promise<Record<string, string>> {
     const data = await this.getOrFetch(agencyId);
     return data.trips;
+  }
+
+  async getStopToRoutes(agencyId: string): Promise<Record<string, string[]>> {
+    const data = await this.getOrFetch(agencyId);
+    return data.stopToRoutes;
   }
 
   private async getOrFetch(agencyId: string): Promise<StaticData> {
@@ -68,8 +74,10 @@ export class GtfsStaticService {
     const tripsRaw = await this.parseCsv(files.get('trips.txt'));
     const trips = this.buildTripsMap(tripsRaw);
     const shapes = await this.parseShapes(files.get('shapes.txt'), tripsRaw);
+    const stopTimesRaw = await this.parseCsv(files.get('stop_times.txt'));
+    const stopToRoutes = this.buildStopToRoutesMap(stopTimesRaw, trips);
 
-    return { routes, stops, shapes, trips };
+    return { routes, stops, shapes, trips, stopToRoutes };
   }
 
   private async unzipToMap(buffer: Buffer): Promise<Map<string, Buffer>> {
@@ -122,15 +130,35 @@ export class GtfsStaticService {
   private async parseRoutes(buffer: Buffer | undefined): Promise<Route[]> {
     const records = await this.parseCsv(buffer);
 
-    return records.map((r) => ({
-      id: r.route_id,
-      agencyId: r.agency_id,
-      shortName: r.route_short_name ?? '',
-      longName: r.route_long_name ?? '',
-      type: parseInt(r.route_type ?? '3', 10),
-      color: r.route_color ?? 'FFFFFF',
-      textColor: r.route_text_color ?? '000000',
-    }));
+    return records.map((r) => {
+      const rawColor = (r.route_color ?? '').trim().toUpperCase();
+      const color = rawColor && rawColor !== 'FFFFFF' && rawColor !== 'FFF'
+        ? rawColor
+        : this.generateRouteColor(r.route_id);
+      return {
+        id: r.route_id,
+        agencyId: r.agency_id,
+        shortName: r.route_short_name ?? '',
+        longName: r.route_long_name ?? '',
+        type: parseInt(r.route_type ?? '3', 10),
+        color,
+        textColor: r.route_text_color ?? '000000',
+      };
+    });
+  }
+
+  private generateRouteColor(routeId: string): string {
+    const palette = [
+      'e74c3c', '3498db', '2ecc71', 'f39c12', '9b59b6',
+      '1abc9c', 'e67e22', 'e91e63', '00bcd4', '8bc34a',
+      'ff5722', '607d8b', '795548', 'cddc39', '009688',
+      '673ab7', 'ff6f00', 'd81b60', '455a64', '5d4037',
+    ];
+    let hash = 0;
+    for (let i = 0; i < routeId.length; i++) {
+      hash = ((hash << 5) - hash + routeId.charCodeAt(i)) | 0;
+    }
+    return palette[Math.abs(hash) % palette.length];
   }
 
   private async parseStops(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Stop>> {
@@ -208,5 +236,28 @@ export class GtfsStaticService {
       }
     }
     return trips;
+  }
+
+  private buildStopToRoutesMap(
+    stopTimes: Record<string, string>[],
+    trips: Record<string, string>,
+  ): Record<string, string[]> {
+    const stopToRoutes = new Map<string, Set<string>>();
+    for (const st of stopTimes) {
+      const stopId = st.stop_id;
+      const tripId = st.trip_id;
+      if (!stopId || !tripId) continue;
+      const routeId = trips[tripId];
+      if (!routeId) continue;
+      if (!stopToRoutes.has(stopId)) {
+        stopToRoutes.set(stopId, new Set());
+      }
+      stopToRoutes.get(stopId)!.add(routeId);
+    }
+    const result: Record<string, string[]> = {};
+    for (const [stopId, routeIds] of stopToRoutes) {
+      result[stopId] = Array.from(routeIds);
+    }
+    return result;
   }
 }

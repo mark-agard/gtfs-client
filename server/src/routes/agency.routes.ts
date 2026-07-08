@@ -85,6 +85,16 @@ export async function agencyRoutes(
     }
   });
 
+  app.get<{ Params: { id: string } }>('/api/agencies/:id/stop-to-routes', async (request, reply) => {
+    try {
+      return await gtfsStatic.getStopToRoutes(request.params.id);
+    } catch (err) {
+      app.log.error(err);
+      reply.status(502);
+      return { error: 'Failed to load stop-to-routes mapping' };
+    }
+  });
+
   app.get<{ Params: { id: string } }>('/api/agencies/:id/alerts', async (request, reply) => {
     try {
       const snapshot = gtfsRealtime.getSnapshot(request.params.id);

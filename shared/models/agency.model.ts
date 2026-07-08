@@ -19,6 +19,7 @@ export interface AgencyDetail {
   state: string;
   routeCount: number;
   hasRealtime: boolean;
+  realtimeStatus: 'available' | 'requires_auth' | 'none';
   feedStatus: 'active' | 'inactive' | 'unknown';
   boundingBox?: {
     minLat: number;

@@ -207,6 +207,7 @@ export class MapComponent implements OnDestroy {
             featureProjection: 'EPSG:3857',
           });
           this.routeSource.addFeatures(features);
+          this.routeLayer.changed();
         },
       });
     });
@@ -223,6 +224,8 @@ export class MapComponent implements OnDestroy {
     effect(() => {
       if (!this.mapReady()) return;
       const stops = this.gtfsService.stops();
+      const hidden = this.gtfsService.hiddenRoutes();
+      const stopToRoutes = this.gtfsService.stopToRoutes();
       if (stops.length === 0) {
         this.stopSource.clear();
         return;
@@ -230,6 +233,12 @@ export class MapComponent implements OnDestroy {
 
       this.stopSource.clear();
       for (const stop of stops) {
+        const routeIds = stopToRoutes[stop.id];
+        const isHidden = routeIds && routeIds.length > 0
+          ? routeIds.every((rid) => hidden.has(rid))
+          : false;
+        if (isHidden) continue;
+
         const feature = new Feature({
           geometry: new Point(fromLonLat([stop.lon, stop.lat])),
           name: stop.name,
@@ -240,7 +249,11 @@ export class MapComponent implements OnDestroy {
 
     effect(() => {
       if (!this.mapReady()) return;
-      this.updateVehiclePositions(this.realtimeService.vehiclePositions());
+      const hidden = this.gtfsService.hiddenRoutes();
+      const positions = this.realtimeService.vehiclePositions().filter(
+        (p) => !p.routeId || !hidden.has(p.routeId),
+      );
+      this.updateVehiclePositions(positions);
     });
   }
 
@@ -261,7 +274,7 @@ export class MapComponent implements OnDestroy {
             points: 3,
             radius: 8,
             rotation: (pos.bearing * Math.PI) / 180,
-            fill: new Fill({ color: '#1976d2' }),
+            fill: new Fill({ color: `#${this.routeColorMap.get(pos.routeId) ?? '1976d2'}` }),
             stroke: new Stroke({ color: '#fff', width: 1 }),
           }),
         }),

@@ -13,6 +13,7 @@ export class GtfsService {
   readonly routes = signal<Route[]>([]);
   readonly stops = signal<Stop[]>([]);
   readonly tripToRoute = signal<Record<string, string>>({});
+  readonly stopToRoutes = signal<Record<string, string[]>>({});
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly hiddenRoutes = signal<Set<string>>(new Set());
@@ -37,11 +38,13 @@ export class GtfsService {
       routes: this.http.get<{ routes: Route[] }>(`${this.baseUrl}/${agencyId}/routes`),
       stops: this.http.get<GeoJSONFeatureCollection<Stop>>(`${this.baseUrl}/${agencyId}/stops`),
       trips: this.http.get<Record<string, string>>(`${this.baseUrl}/${agencyId}/trips`),
+      stopToRoutes: this.http.get<Record<string, string[]>>(`${this.baseUrl}/${agencyId}/stop-to-routes`),
     }).subscribe({
-      next: ({ routes, stops, trips }) => {
+      next: ({ routes, stops, trips, stopToRoutes }) => {
         this.routes.set(routes.routes);
         this.stops.set(stops.features.map((f) => f.properties));
         this.tripToRoute.set(trips);
+        this.stopToRoutes.set(stopToRoutes);
         this.loading.set(false);
       },
       error: (err) => {
@@ -59,6 +62,7 @@ export class GtfsService {
     this.routes.set([]);
     this.stops.set([]);
     this.tripToRoute.set({});
+    this.stopToRoutes.set({});
     this.hiddenRoutes.set(new Set());
     this.loading.set(false);
     this.error.set(null);

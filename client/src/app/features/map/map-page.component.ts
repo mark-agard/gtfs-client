@@ -17,7 +17,7 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
           <p>{{ agencyService.error() }}</p>
           <a routerLink="/">Back to city selector</a>
         </div>
-      } @else if (agencyService.selectedAgency()) {
+      } @else if (agencyService.selectedAgency() && !gtfsService.loading()) {
         <div class="map-page__main">
           <div class="map-page__map-area">
             @if (realtimeService.reconnecting()) {
@@ -29,6 +29,16 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
             @if (realtimeService.connected() === false && realtimeService.reconnecting() === false && agencyService.selectedAgency()?.hasRealtime) {
               <div class="map-page__banner map-page__banner--lost">
                 Connection lost <button (click)="realtimeService.retry()">Retry</button>
+              </div>
+            }
+            @if (agencyService.selectedAgency()?.realtimeStatus === 'requires_auth') {
+              <div class="map-page__banner map-page__banner--info">
+                Live tracking requires an API key from this agency
+              </div>
+            }
+            @if (agencyService.selectedAgency()?.realtimeStatus === 'none') {
+              <div class="map-page__banner map-page__banner--info">
+                No realtime data available for this agency
               </div>
             }
             <app-map />
@@ -59,7 +69,7 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
       } @else {
         <div class="map-page__loading">
           <div class="map-page__spinner"></div>
-          <p>Loading agency…</p>
+          <p>Loading routes and stops…</p>
         </div>
       }
     </div>
@@ -110,6 +120,11 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
     .map-page__banner--lost {
       background: var(--color-error-light);
       color: var(--color-error);
+    }
+    .map-page__banner--info {
+      background: var(--color-bg-card);
+      color: var(--color-text-muted);
+      border: 1px solid var(--color-border);
     }
     .map-page__banner--lost button {
       background: var(--color-error);
@@ -206,7 +221,7 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
 export class MapPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   protected readonly agencyService = inject(AgencyService);
-  private readonly gtfsService = inject(GtfsService);
+  protected readonly gtfsService = inject(GtfsService);
   protected readonly realtimeService = inject(RealtimeService);
 
   ngOnInit(): void {
