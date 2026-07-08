@@ -93,11 +93,13 @@ export class MapPageComponent implements OnInit, OnDestroy {
 
     this.agencyService.fetchAgencyDetail(agencyId).subscribe({
       next: (detail) => {
-        this.agencyService.selectAgency(detail);
-        this.gtfsService.loadStaticData(agencyId);
-        if (detail.hasRealtime) {
-          this.realtimeService.connect(agencyId);
-        }
+        queueMicrotask(() => {
+          this.agencyService.selectAgency(detail);
+          this.gtfsService.loadStaticData(agencyId);
+          if (detail.hasRealtime) {
+            this.realtimeService.connect(agencyId);
+          }
+        });
       },
       error: (err) => {
         this.agencyService.error.set(err.message ?? 'Failed to load agency');

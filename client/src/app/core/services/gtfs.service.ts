@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 import { GeoJSONFeatureCollection } from '@shared/models/geojson.model';
 import { Route } from '@shared/models/route.model';
 import { Stop } from '@shared/models/stop.model';
@@ -19,27 +20,19 @@ export class GtfsService {
     this.loading.set(true);
     this.error.set(null);
 
-    this.http.get<GeoJSONFeatureCollection<Route>>(`${this.baseUrl}/${agencyId}/routes`).subscribe({
-      next: (res) => {
-        this.routes.set(res.features.map((f) => f.properties));
-      },
-      error: (err) => this.error.set(err.message ?? 'Failed to load routes'),
-    });
-
-    this.http.get<GeoJSONFeatureCollection<Stop>>(`${this.baseUrl}/${agencyId}/stops`).subscribe({
-      next: (res) => {
-        this.stops.set(res.features.map((f) => f.properties));
-      },
-      error: (err) => this.error.set(err.message ?? 'Failed to load stops'),
-    });
-
-    this.http.get<Record<string, string>>(`${this.baseUrl}/${agencyId}/trips`).subscribe({
-      next: (res) => {
-        this.tripToRoute.set(res);
+    forkJoin({
+      routes: this.http.get<GeoJSONFeatureCollection<Route>>(`${this.baseUrl}/${agencyId}/routes`),
+      stops: this.http.get<GeoJSONFeatureCollection<Stop>>(`${this.baseUrl}/${agencyId}/stops`),
+      trips: this.http.get<Record<string, string>>(`${this.baseUrl}/${agencyId}/trips`),
+    }).subscribe({
+      next: ({ routes, stops, trips }) => {
+        this.routes.set(routes.features.map((f) => f.properties));
+        this.stops.set(stops.features.map((f) => f.properties));
+        this.tripToRoute.set(trips);
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err.message ?? 'Failed to load trips');
+        this.error.set(err.message ?? 'Failed to load GTFS data');
         this.loading.set(false);
       },
     });

@@ -1,21 +1,23 @@
 import {
   Component,
   inject,
-  OnInit,
   OnDestroy,
   ElementRef,
   ViewChild,
   effect,
+  signal,
+  afterNextRender,
 } from '@angular/core';
+
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, transformExtent } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Style, Circle, Fill } from 'ol/style';
+import { Style, Stroke, Circle as CircleStyle, Fill } from 'ol/style';
 import { Feature } from 'ol';
 import { Point } from 'ol/geom';
 import { GtfsService } from '../../../core/services/gtfs.service';
@@ -27,77 +29,127 @@ import { VehiclePosition } from '@shared/models/vehicle-position.model';
   selector: 'app-map',
   template: `<div #mapEl class="map__container"></div>`,
   styles: [`
+    :host {
+      display: block;
+      flex: 1;
+      min-height: 0;
+    }
     .map__container {
       width: 100%;
       height: 100%;
     }
   `],
 })
-export class MapComponent implements OnInit, OnDestroy {
+export class MapComponent implements OnDestroy {
   @ViewChild('mapEl', { static: true }) mapEl!: ElementRef<HTMLDivElement>;
 
   private readonly gtfsService = inject(GtfsService);
   private readonly realtimeService = inject(RealtimeService);
   private readonly agencyService = inject(AgencyService);
 
-  private map!: Map;
-  private routeSource!: VectorSource;
-  private stopSource!: VectorSource;
-  private vehicleSource!: VectorSource;
+  private map: Map | null = null;
+  private readonly mapReady = signal(false);
 
-  private readonly routeLayer = new VectorLayer({ source: new VectorSource() });
-  private readonly stopLayer = new VectorLayer({ source: new VectorSource() });
-  private readonly vehicleLayer = new VectorLayer({ source: new VectorSource() });
+  private routeSource = new VectorSource();
+  private stopSource = new VectorSource();
+  private vehicleSource = new VectorSource();
 
-  ngOnInit(): void {
-    this.routeSource = this.routeLayer.getSource()!;
-    this.stopSource = this.stopLayer.getSource()!;
-    this.vehicleSource = this.vehicleLayer.getSource()!;
+  private readonly routeLayer = new VectorLayer({
+    source: this.routeSource,
+    style: (feature) => {
+      const color = feature.get('color') ?? '#3388ff';
+      return new Style({
+        stroke: new Stroke({ color, width: 3 }),
+      });
+    },
+  });
 
-    this.map = new Map({
-      target: this.mapEl.nativeElement,
-      layers: [
-        new TileLayer({ source: new OSM() }),
-        this.routeLayer,
-        this.stopLayer,
-        this.vehicleLayer,
-      ],
-      view: new View({
-        center: fromLonLat([-98.5, 39.8]),
-        zoom: 4,
+  private readonly stopLayer = new VectorLayer({
+    source: this.stopSource,
+    style: new Style({
+      image: new CircleStyle({
+        radius: 4,
+        fill: new Fill({ color: '#666' }),
+        stroke: new Stroke({ color: '#fff', width: 1 }),
       }),
-    });
+    }),
+  });
 
-    this.fitBounds();
-    this.loadShapes();
+  private readonly vehicleLayer = new VectorLayer({
+    source: this.vehicleSource,
+  });
+
+  constructor() {
+    afterNextRender(() => {
+      this.map = new Map({
+        target: this.mapEl.nativeElement,
+        layers: [
+          new TileLayer({ source: new OSM() }),
+          this.routeLayer,
+          this.stopLayer,
+          this.vehicleLayer,
+        ],
+        view: new View({
+          center: fromLonLat([-98.5, 39.8]),
+          zoom: 4,
+        }),
+      });
+      this.map.updateSize();
+      this.mapReady.set(true);
+    });
 
     effect(() => {
-      this.updateVehiclePositions(this.realtimeService.vehiclePositions());
-    });
-  }
+      if (!this.mapReady()) return;
+      const agency = this.agencyService.selectedAgency();
+      if (!agency?.boundingBox || !this.map) return;
 
-  private fitBounds(): void {
-    const agency = this.agencyService.selectedAgency();
-    if (agency?.boundingBox) {
+      this.map.updateSize();
       const { minLat, minLon, maxLat, maxLon } = agency.boundingBox;
-      this.map.getView().fit(
+      const extent = transformExtent(
         [minLon, minLat, maxLon, maxLat],
-        { padding: [50, 50, 50, 50] },
+        'EPSG:4326',
+        'EPSG:3857',
       );
-    }
-  }
+      this.map.getView().fit(extent, { padding: [50, 50, 50, 50] });
+    });
 
-  private loadShapes(): void {
-    const agency = this.agencyService.selectedAgency();
-    if (!agency) return;
+    effect(() => {
+      if (!this.mapReady()) return;
+      const agency = this.agencyService.selectedAgency();
+      if (!agency) return;
 
-    this.gtfsService.getRouteShapes(agency.id).subscribe({
-      next: (geojson) => {
-        const features = new GeoJSON().readFeatures(geojson, {
-          featureProjection: 'EPSG:3857',
+      this.routeSource.clear();
+      this.gtfsService.getRouteShapes(agency.id).subscribe({
+        next: (geojson) => {
+          const features = new GeoJSON().readFeatures(geojson, {
+            featureProjection: 'EPSG:3857',
+          });
+          this.routeSource.addFeatures(features);
+        },
+      });
+    });
+
+    effect(() => {
+      if (!this.mapReady()) return;
+      const stops = this.gtfsService.stops();
+      if (stops.length === 0) {
+        this.stopSource.clear();
+        return;
+      }
+
+      this.stopSource.clear();
+      for (const stop of stops) {
+        const feature = new Feature({
+          geometry: new Point(fromLonLat([stop.lon, stop.lat])),
+          name: stop.name,
         });
-        this.routeSource.addFeatures(features);
-      },
+        this.stopSource.addFeature(feature);
+      }
+    });
+
+    effect(() => {
+      if (!this.mapReady()) return;
+      this.updateVehiclePositions(this.realtimeService.vehiclePositions());
     });
   }
 
@@ -114,7 +166,7 @@ export class MapComponent implements OnInit, OnDestroy {
 
       feature.setStyle(
         new Style({
-          image: new Circle({
+          image: new CircleStyle({
             radius: 6,
             fill: new Fill({ color: '#1976d2' }),
           }),
