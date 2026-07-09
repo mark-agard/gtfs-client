@@ -23,9 +23,14 @@ import { AgencyCardComponent } from './agency-card.component';
       </div>
 
       @if (agencyService.loading()) {
+        <div class="city-selector__loading-label">Loading agencies…</div>
         <div class="city-selector__grid">
           @for (item of skeletons; track $index) {
-            <div class="city-selector__skeleton"></div>
+            <div class="city-selector__skeleton">
+              <div class="city-selector__skeleton-line city-selector__skeleton-line--title"></div>
+              <div class="city-selector__skeleton-line city-selector__skeleton-line--sub"></div>
+              <div class="city-selector__skeleton-line city-selector__skeleton-line--short"></div>
+            </div>
           }
         </div>
       } @else if (agencyService.error()) {
@@ -104,12 +109,39 @@ import { AgencyCardComponent } from './agency-card.component';
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 1rem;
     }
+    .city-selector__loading-label {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      padding-left: 0.25rem;
+    }
     .city-selector__skeleton {
       height: 120px;
       border-radius: var(--radius-md);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-light);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+    .city-selector__skeleton-line {
+      border-radius: var(--radius-sm);
       background: linear-gradient(90deg, var(--color-border-light) 25%, #e8e8e8 50%, var(--color-border-light) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s infinite;
+    }
+    .city-selector__skeleton-line--title {
+      width: 60%;
+      height: 1.1rem;
+    }
+    .city-selector__skeleton-line--sub {
+      width: 80%;
+      height: 0.875rem;
+    }
+    .city-selector__skeleton-line--short {
+      width: 35%;
+      height: 0.75rem;
+      margin-top: auto;
     }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
