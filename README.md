@@ -11,7 +11,7 @@ This project is the spiritual successor to much less mature implementation that 
 - **Realtime vehicle tracking** — Live vehicle positions streamed via WebSocket from GTFS-Realtime feeds, with reconnection logic and heartbeat support. Vehicles are colored to match their route.
 - **Route filtering** — Search, show, and hide individual routes. Filtering a route hides its line, vehicles, and stops exclusive to that route. Stops shared with other visible routes remain on the map.
 - **Stop & vehicle popups** — Click any stop to see its name and all routes serving it. Click any vehicle to see its route, status, speed, and last update time.
-- **Realtime status communication** — Clearly communicates when live data is available, requires an agency-specific API key, or is unavailable — so users know why realtime data may be missing.*
+- **Realtime status communication** — Clearly communicates when live data is available, requires an agency-specific API key, or is unavailable — so users know why realtime data may be missing.
 
 ## Tech Stack
 
@@ -61,5 +61,5 @@ gtfs-client/
 
 This is arguably my *third* full-stack web application built in JS. Small sample size aside, I'm finding that JS projects require a lot more intentionality to avoid building labyrinthian codebases. I think I did a bit better this time around because I tried very hard to reason through the architecture before I started coding anything. Of course, using AI complicates things, since there's a need to manage the trade-off between velocity and intentionality. 
 
-*The easy solution would be to prompt users to provide their own API keys to see live data from networks like WMATA which require them. Of course, no sane user would provide those (including myself). So, what's an alternative approach? I struggle to think of a better option than just slowly building up a list of keys managed in the server's env file. I like that we don't make undue API calls from the home page, and "some transit agencies lack live vehicle data" is fine enough for this project!
+Another challenge is API key management! Mobility Data requires an API key, but many transit systems also require their own key for realtime data. The easy solution would be to prompt users to provide their own API keys to see live data from networks like WMATA which require them. Of course, no sane user would provide those (including myself). So, what's an alternative approach? I struggle to think of a better option than just slowly building up a list of keys managed in the server's env file. I like that we don't make undue API calls from the home page, and "some transit agencies lack live vehicle data" is fine enough for this project!
 
