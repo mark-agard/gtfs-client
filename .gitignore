@@ -29,6 +29,7 @@ yarn-error.log*
 # Build artifacts
 *.tsbuildinfo
 coverage/
+server/public/
 
 # Runtime data
 pids/

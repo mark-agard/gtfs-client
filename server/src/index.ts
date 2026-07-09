@@ -1,7 +1,9 @@
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import fastifyStatic from '@fastify/static';
 import dotenv from 'dotenv';
 import { MobilityDbService } from './services/mobility-db.service.js';
 import { GtfsStaticService } from './services/gtfs-static.service.js';
@@ -26,6 +28,23 @@ await app.register(websocket);
 
 await healthRoutes(app);
 await agencyRoutes(app, { mobilityDb, gtfsStatic, gtfsRealtime });
+
+const clientDist = resolve(process.cwd(), 'public');
+if (existsSync(clientDist)) {
+  await app.register(fastifyStatic, {
+    root: clientDist,
+    prefix: '/',
+    wildcard: false,
+  });
+
+  app.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith('/api/')) {
+      reply.status(404).send({ error: 'Not found' });
+    } else {
+      reply.sendFile('index.html');
+    }
+  });
+}
 
 const start = async () => {
   try {
