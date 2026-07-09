@@ -4,6 +4,8 @@ An interactive web application for exploring real-time public transit data from 
 
 This project is the spiritual successor to much less mature implementation that focused on WMATA data. I think exploring live transit data is an interesting use-case, but I decided starting anew was better than trying to retrofit the old codebase, given how early in development it was. In particular, I wanted to architecture this project more intentionally!
 
+Accessible at: https://gtfs-client-production.up.railway.app/
+
 ## Features
 
 - **Agency discovery** — Search and browse a catalog of 1,000+ U.S. transit agencies from the [Mobility Database](https://mobilitydatabase.org/). Agencies with multiple feeds (e.g., Bus, Rail) are distinguished by feed type and service area.
