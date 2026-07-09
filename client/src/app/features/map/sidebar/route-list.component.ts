@@ -8,7 +8,7 @@ import { GtfsService } from '../../../core/services/gtfs.service';
       <div class="route-list__header">
         <h3>Routes</h3>
         @if (gtfsService.routes().length > 0) {
-          <span class="route-list__count">{{ filteredRoutes().length }} visible</span>
+          <span class="route-list__count">{{ filteredRoutes().length }} of {{ gtfsService.routes().length }}</span>
         }
       </div>
       @if (gtfsService.loading()) {
@@ -21,6 +21,10 @@ import { GtfsService } from '../../../core/services/gtfs.service';
           [value]="filter()"
           (input)="onFilter($event)"
         />
+        <div class="route-list__actions">
+          <button class="route-list__action" (click)="showAllFiltered()">Show all</button>
+          <button class="route-list__action" (click)="hideAllFiltered()">Hide all</button>
+        </div>
         <div class="route-list__items">
           @for (route of filteredRoutes(); track route.id) {
             <label class="route-list__item">
@@ -29,11 +33,10 @@ import { GtfsService } from '../../../core/services/gtfs.service';
                 [checked]="!gtfsService.hiddenRoutes().has(route.id)"
                 (change)="onToggle($event, route.id)"
               />
-              <span
-                class="route-list__color"
-                [style.background]="'#' + route.color"
-              ></span>
-              <span class="route-list__name">{{ route.shortName }} {{ route.longName }}</span>
+              @if (route.shortName) {
+                <span class="route-list__badge" [style.background]="'#' + route.color" [style.color]="textColor(route.color)">{{ route.shortName }}</span>
+              }
+              <span class="route-list__name">{{ route.longName }}</span>
             </label>
           }
           @if (filteredRoutes().length === 0) {
@@ -72,7 +75,7 @@ import { GtfsService } from '../../../core/services/gtfs.service';
       font-size: 0.85rem;
     }
     .route-list__items {
-      max-height: 280px;
+      max-height: 400px;
       overflow-y: auto;
     }
     .route-list__item {
@@ -105,6 +108,35 @@ import { GtfsService } from '../../../core/services/gtfs.service';
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .route-list__actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .route-list__action {
+      background: none;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: all var(--transition);
+
+      &:hover {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+    }
+    .route-list__badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+      flex-shrink: 0;
+      line-height: 1.3;
+    }
     .route-list__loading, .route-list__empty {
       color: var(--color-text-muted);
       font-size: 0.85rem;
@@ -135,5 +167,31 @@ export class RouteListComponent {
   onToggle(event: Event, routeId: string): void {
     const checked = (event.target as HTMLInputElement).checked;
     this.gtfsService.toggleRoute(routeId, checked);
+  }
+
+  showAllFiltered(): void {
+    const hidden = this.gtfsService.hiddenRoutes();
+    for (const route of this.filteredRoutes()) {
+      if (hidden.has(route.id)) {
+        this.gtfsService.toggleRoute(route.id, true);
+      }
+    }
+  }
+
+  hideAllFiltered(): void {
+    const hidden = this.gtfsService.hiddenRoutes();
+    for (const route of this.filteredRoutes()) {
+      if (!hidden.has(route.id)) {
+        this.gtfsService.toggleRoute(route.id, false);
+      }
+    }
+  }
+
+  textColor(bgColor: string): string {
+    const r = parseInt(bgColor.slice(0, 2), 16);
+    const g = parseInt(bgColor.slice(2, 4), 16);
+    const b = parseInt(bgColor.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#000' : '#fff';
   }
 }

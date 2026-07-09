@@ -372,6 +372,8 @@ export class MapComponent implements OnDestroy {
       if (!this.mapReady()) return;
       const stops = this.gtfsService.stops();
       const hidden = this.gtfsService.hiddenRoutes();
+      const allRoutes = this.gtfsService.routes();
+      const allHidden = hidden.size >= allRoutes.length && allRoutes.length > 0;
       const stopToRoutes = this.gtfsService.stopToRoutes();
       if (stops.length === 0) {
         this.stopSource.clear();
@@ -383,7 +385,7 @@ export class MapComponent implements OnDestroy {
         const routeIds = stopToRoutes[stop.id];
         const isHidden = routeIds && routeIds.length > 0
           ? routeIds.every((rid) => hidden.has(rid))
-          : false;
+          : allHidden;
         if (isHidden) continue;
 
         const feature = new Feature({
@@ -399,7 +401,7 @@ export class MapComponent implements OnDestroy {
       if (!this.mapReady()) return;
       const hidden = this.gtfsService.hiddenRoutes();
       const positions = this.realtimeService.vehiclePositions().filter(
-        (p) => !p.routeId || !hidden.has(p.routeId),
+        (p) => p.routeId && !hidden.has(p.routeId),
       );
       this.updateVehiclePositions(positions);
     });

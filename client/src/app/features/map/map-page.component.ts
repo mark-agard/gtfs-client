@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgencyService } from '../../core/services/agency.service';
 import { GtfsService } from '../../core/services/gtfs.service';
@@ -20,6 +20,13 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
       } @else if (agencyService.selectedAgency() && !gtfsService.loading()) {
         <div class="map-page__main">
           <div class="map-page__map-area">
+            <button class="map-page__sidebar-toggle" (click)="sidebarOpen.set(true)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
             @if (realtimeService.reconnecting()) {
               <div class="map-page__banner map-page__banner--reconnecting">
                 <span class="map-page__banner-dot"></span>
@@ -43,7 +50,10 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
             }
             <app-map />
           </div>
-          <div class="map-page__sidebar">
+          @if (sidebarOpen()) {
+            <div class="map-page__overlay" (click)="sidebarOpen.set(false)"></div>
+          }
+          <div class="map-page__sidebar" [class.map-page__sidebar--open]="sidebarOpen()">
             <div class="map-page__sidebar-header">
               <div>
                 <h2>{{ agencyService.selectedAgency()?.name }}</h2>
@@ -58,7 +68,10 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
                   <span class="map-page__agency-location">{{ agencyService.selectedAgency()?.state }}</span>
                 }
               </div>
-              <a routerLink="/" class="map-page__back">← Back</a>
+              <div class="map-page__sidebar-actions">
+                <button class="map-page__sidebar-close" (click)="sidebarOpen.set(false)">×</button>
+                <a routerLink="/" class="map-page__back">← Back</a>
+              </div>
             </div>
             <div class="map-page__sidebar-content">
               <app-route-list />
@@ -175,6 +188,21 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
       white-space: nowrap;
       padding-top: 0.15rem;
     }
+    .map-page__sidebar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .map-page__sidebar-close {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      padding: 0;
+    }
     .map-page__sidebar-content {
       flex: 1;
       overflow-y: auto;
@@ -216,6 +244,55 @@ import { AlertPanelComponent } from './sidebar/alert-panel.component';
     .map-page__error a {
       color: var(--color-primary);
     }
+    .map-page__sidebar-toggle {
+      display: none;
+    }
+    .map-page__overlay {
+      display: none;
+    }
+    @media (max-width: 767px) {
+      .map-page__sidebar-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 1001;
+        width: 2.25rem;
+        height: 2.25rem;
+        background: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        color: var(--color-text);
+        box-shadow: var(--shadow-sm);
+      }
+      .map-page__sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 85%;
+        max-width: 340px;
+        z-index: 1002;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+      }
+      .map-page__sidebar--open {
+        transform: translateX(0);
+      }
+      .map-page__overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1001;
+        background: rgba(0, 0, 0, 0.3);
+      }
+      .map-page__sidebar-close {
+        display: block;
+      }
+    }
   `],
 })
 export class MapPageComponent implements OnInit, OnDestroy {
@@ -223,6 +300,7 @@ export class MapPageComponent implements OnInit, OnDestroy {
   protected readonly agencyService = inject(AgencyService);
   protected readonly gtfsService = inject(GtfsService);
   protected readonly realtimeService = inject(RealtimeService);
+  readonly sidebarOpen = signal(false);
 
   ngOnInit(): void {
     const agencyId = this.route.snapshot.paramMap.get('id');

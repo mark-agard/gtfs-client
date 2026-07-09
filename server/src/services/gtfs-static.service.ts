@@ -70,12 +70,13 @@ export class GtfsStaticService {
     const files = await this.unzipToMap(buffer);
 
     const routes = await this.parseRoutes(files.get('routes.txt'));
-    const stops = await this.parseStops(files.get('stops.txt'));
     const tripsRaw = await this.parseCsv(files.get('trips.txt'));
     const trips = this.buildTripsMap(tripsRaw);
     const shapes = await this.parseShapes(files.get('shapes.txt'), tripsRaw);
     const stopTimesRaw = await this.parseCsv(files.get('stop_times.txt'));
     const stopToRoutes = this.buildStopToRoutesMap(stopTimesRaw, trips);
+    const activeStopIds = new Set(Object.keys(stopToRoutes));
+    const stops = await this.parseStops(files.get('stops.txt'), activeStopIds);
 
     return { routes, stops, shapes, trips, stopToRoutes };
   }
@@ -161,11 +162,11 @@ export class GtfsStaticService {
     return palette[Math.abs(hash) % palette.length];
   }
 
-  private async parseStops(buffer: Buffer | undefined): Promise<GeoJSONFeatureCollection<Stop>> {
+  private async parseStops(buffer: Buffer | undefined, activeStopIds: Set<string>): Promise<GeoJSONFeatureCollection<Stop>> {
     const records = await this.parseCsv(buffer);
 
     const features = records
-      .filter((r) => r.stop_lat && r.stop_lon)
+      .filter((r) => r.stop_lat && r.stop_lon && activeStopIds.has(r.stop_id))
       .map((r) => ({
         type: 'Feature' as const,
         geometry: {
@@ -213,7 +214,9 @@ export class GtfsStaticService {
       shapeMap.get(shapeId)!.push({ seq, point });
     }
 
-    const features = Array.from(shapeMap.entries()).map(([shapeId, entries]) => ({
+    const features = Array.from(shapeMap.entries())
+      .filter(([shapeId]) => shapeToRoute.has(shapeId))
+      .map(([shapeId, entries]) => ({
       type: 'Feature' as const,
       geometry: {
         type: 'LineString' as const,
