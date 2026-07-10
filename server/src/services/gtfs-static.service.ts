@@ -17,6 +17,10 @@ interface StaticData {
 }
 
 export class GtfsStaticService {
+  private static readonly NEEDED_FILES = new Set([
+    'routes.txt', 'trips.txt', 'shapes.txt', 'stop_times.txt', 'stops.txt',
+  ]);
+
   private readonly cache = new Cache<StaticData>(STATIC_CACHE_TTL);
   private readonly pendingFetches = new Map<string, Promise<StaticData>>();
 
@@ -80,17 +84,27 @@ export class GtfsStaticService {
       throw new Error(`Failed to download GTFS feed: ${res.status}`);
     }
 
-    const buffer = Buffer.from(await res.arrayBuffer());
+    let buffer = Buffer.from(await res.arrayBuffer());
     const files = await this.unzipToMap(buffer);
+    buffer = null!;
 
     const routes = await this.parseRoutes(files.get('routes.txt'));
+    files.delete('routes.txt');
+
     const tripsRaw = await this.parseCsv(files.get('trips.txt'));
+    files.delete('trips.txt');
+
     const trips = this.buildTripsMap(tripsRaw);
     const shapes = await this.parseShapes(files.get('shapes.txt'), tripsRaw);
+    files.delete('shapes.txt');
+
     const stopTimesRaw = await this.parseCsv(files.get('stop_times.txt'));
+    files.delete('stop_times.txt');
+
     const stopToRoutes = this.buildStopToRoutesMap(stopTimesRaw, trips);
     const activeStopIds = new Set(Object.keys(stopToRoutes));
     const stops = await this.parseStops(files.get('stops.txt'), activeStopIds);
+    files.delete('stops.txt');
 
     return { routes, stops, shapes, trips, stopToRoutes };
   }
@@ -103,7 +117,7 @@ export class GtfsStaticService {
       const bufferPromises: Promise<void>[] = [];
 
       stream.on('entry', (entry: any) => {
-        if (entry.type === 'File') {
+        if (entry.type === 'File' && GtfsStaticService.NEEDED_FILES.has(entry.path)) {
           bufferPromises.push(
             entry.buffer().then((content: Buffer) => {
               files.set(entry.path, content);
@@ -131,7 +145,7 @@ export class GtfsStaticService {
 
     return new Promise((resolve, reject) => {
       const records: Record<string, string>[] = [];
-      parse(buffer.toString('utf-8'), {
+      parse(buffer, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
