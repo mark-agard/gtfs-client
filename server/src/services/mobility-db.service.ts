@@ -68,17 +68,33 @@ export class MobilityDbService {
     let cached = this.agencyCache.get('us-agencies');
 
     if (!cached) {
-      const allFeeds: MobilityDbFeed[] = [];
       const limit = 1000;
+      const concurrency = 4;
+      const allFeeds: MobilityDbFeed[] = [];
       let offset = 0;
 
       while (true) {
-        const batch = await this.apiGet<MobilityDbFeed[]>(
-          `/v1/gtfs_feeds?status=active&limit=${limit}&offset=${offset}`,
+        const offsets: number[] = [];
+        for (let i = 0; i < concurrency; i++) {
+          offsets.push(offset + i * limit);
+        }
+
+        const batches = await Promise.all(
+          offsets.map((off) =>
+            this.apiGet<MobilityDbFeed[]>(
+              `/v1/gtfs_feeds?status=active&limit=${limit}&offset=${off}`,
+            ),
+          ),
         );
-        allFeeds.push(...batch);
-        if (batch.length < limit) break;
-        offset += limit;
+
+        let allDone = false;
+        for (const batch of batches) {
+          allFeeds.push(...batch);
+          if (batch.length < limit) allDone = true;
+        }
+
+        if (allDone) break;
+        offset += concurrency * limit;
       }
 
       cached = allFeeds
