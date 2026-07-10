@@ -13,9 +13,11 @@ export class MobilityDbService {
   private accessToken: string | null = null;
   private tokenExpiresAt = 0;
   private readonly agencyCache: Cache<Agency[]>;
+  private readonly rtFeedInfoCache: Cache<{ accessible: { url: string; entityType: string }[]; authRequired: boolean }>;
 
   constructor() {
     this.agencyCache = new Cache<Agency[]>(24 * 60 * 60 * 1000);
+    this.rtFeedInfoCache = new Cache<{ accessible: { url: string; entityType: string }[]; authRequired: boolean }>(60 * 60 * 1000);
   }
 
   private async getRefreshToken(): Promise<string> {
@@ -214,6 +216,9 @@ export class MobilityDbService {
     accessible: { url: string; entityType: string }[];
     authRequired: boolean;
   }> {
+    const cached = this.rtFeedInfoCache.get(id);
+    if (cached) return cached;
+
     try {
       const feeds = await this.apiGet<MobilityDbRtFeed[]>(
         `/v1/gtfs_feeds/${id}/gtfs_rt_feeds`,
@@ -228,7 +233,9 @@ export class MobilityDbService {
 
       const hasAuthFeeds = feeds.some((f) => f.source_info?.authentication_type);
 
-      return { accessible, authRequired: accessible.length === 0 && hasAuthFeeds };
+      const result = { accessible, authRequired: accessible.length === 0 && hasAuthFeeds };
+      this.rtFeedInfoCache.set(id, result);
+      return result;
     } catch {
       return { accessible: [], authRequired: false };
     }

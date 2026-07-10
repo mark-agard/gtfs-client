@@ -18,6 +18,7 @@ interface StaticData {
 
 export class GtfsStaticService {
   private readonly cache = new Cache<StaticData>(STATIC_CACHE_TTL);
+  private readonly pendingFetches = new Map<string, Promise<StaticData>>();
 
   constructor(private readonly mobilityDb: MobilityDbService) {}
 
@@ -50,6 +51,19 @@ export class GtfsStaticService {
     const cached = this.cache.get(agencyId);
     if (cached) return cached;
 
+    const pending = this.pendingFetches.get(agencyId);
+    if (pending) return pending;
+
+    const promise = this.doFetch(agencyId);
+    this.pendingFetches.set(agencyId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.pendingFetches.delete(agencyId);
+    }
+  }
+
+  private async doFetch(agencyId: string): Promise<StaticData> {
     const downloadUrl = await this.mobilityDb.getFeedDownloadUrl(agencyId);
     if (!downloadUrl) {
       throw new Error(`No download URL available for agency ${agencyId}`);
