@@ -56,4 +56,15 @@ const start = async () => {
   }
 };
 
+const shutdown = async (signal: string) => {
+  app.log.info(`Received ${signal}, shutting down...`);
+  await app.close();
+  mobilityDb.dispose();
+  gtfsStatic.dispose();
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 start();

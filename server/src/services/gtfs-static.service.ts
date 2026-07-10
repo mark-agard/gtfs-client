@@ -26,6 +26,10 @@ export class GtfsStaticService {
 
   constructor(private readonly mobilityDb: MobilityDbService) {}
 
+  dispose(): void {
+    this.cache.dispose();
+  }
+
   async getRoutes(agencyId: string): Promise<Route[]> {
     const data = await this.getOrFetch(agencyId);
     return data.routes;

@@ -240,6 +240,11 @@ export class MobilityDbService {
       return { accessible: [], authRequired: false };
     }
   }
+
+  dispose(): void {
+    this.agencyCache.dispose();
+    this.rtFeedInfoCache.dispose();
+  }
 }
 
 interface MobilityDbFeed {
