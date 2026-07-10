@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import type { FastifyBaseLogger } from 'fastify';
 import type { MobilityDbService } from './mobility-db.service.js';
 import type { VehiclePosition, ServiceAlert } from '@shared/models/vehicle-position.model';
 
@@ -6,6 +7,7 @@ const require = createRequire(import.meta.url);
 const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 
 const POLL_INTERVAL_MS = 10000;
+const FEED_TIMEOUT_MS = 5000;
 
 type UpdateListener = (positions: VehiclePosition[], alerts: ServiceAlert[]) => void;
 
@@ -27,7 +29,10 @@ export class GtfsRealtimeService {
   private readonly pollers = new Map<string, AgencyPoller>();
   private readonly pendingSubscriptions = new Map<string, Promise<AgencyPoller>>();
 
-  constructor(private readonly mobilityDb: MobilityDbService) {}
+  constructor(
+    private readonly mobilityDb: MobilityDbService,
+    private readonly logger: FastifyBaseLogger,
+  ) {}
 
   async subscribe(agencyId: string, listener: UpdateListener): Promise<AgencyPoller> {
     const existing = this.pollers.get(agencyId);
@@ -99,14 +104,27 @@ export class GtfsRealtimeService {
       const positions: VehiclePosition[] = [];
       const alerts: ServiceAlert[] = [];
 
-      for (const feed of poller.feeds) {
-        const res = await fetch(feed.url);
-        if (!res.ok) continue;
+      const results = await Promise.all(
+        poller.feeds.map(async (feed) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
+          try {
+            const res = await fetch(feed.url, { signal: controller.signal });
+            if (!res.ok) return null;
+            const buffer = Buffer.from(await res.arrayBuffer());
+            return GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
+              new Uint8Array(buffer),
+            );
+          } catch {
+            return null;
+          } finally {
+            clearTimeout(timeout);
+          }
+        }),
+      );
 
-        const buffer = Buffer.from(await res.arrayBuffer());
-        const msg = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
-          new Uint8Array(buffer),
-        );
+      for (const msg of results) {
+        if (!msg) continue;
 
         for (const entity of msg.entity) {
           if (entity.vehicle) {
@@ -156,7 +174,7 @@ export class GtfsRealtimeService {
         listener(positions, alerts);
       }
     } catch (err) {
-      console.error(`Failed to poll realtime feed for agency ${agencyId}:`, err);
+      this.logger.error(`Failed to poll realtime feed for agency ${agencyId}: ${err}`);
     }
   }
 }

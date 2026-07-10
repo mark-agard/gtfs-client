@@ -21,7 +21,7 @@ const app = Fastify({ logger: true });
 
 const mobilityDb = new MobilityDbService();
 const gtfsStatic = new GtfsStaticService(mobilityDb);
-const gtfsRealtime = new GtfsRealtimeService(mobilityDb);
+const gtfsRealtime = new GtfsRealtimeService(mobilityDb, app.log);
 
 await app.register(cors, { origin: [CLIENT_URL] });
 await app.register(websocket);
