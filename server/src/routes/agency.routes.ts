@@ -37,10 +37,11 @@ export async function agencyRoutes(
     try {
       const detail = await mobilityDb.getAgencyDetail(request.params.id);
       return detail;
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(404);
-      return { error: 'Agency not found' };
+      const status = err?.message?.includes('404') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to fetch agency detail' };
     }
   });
 
@@ -48,50 +49,55 @@ export async function agencyRoutes(
     try {
       const routes = await gtfsStatic.getRoutes(request.params.id);
       return { routes };
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to load routes' };
+      const status = err?.message?.includes('No download URL') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to load routes' };
     }
   });
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id/stops', async (request, reply) => {
     try {
       return await gtfsStatic.getStops(request.params.id);
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to load stops' };
+      const status = err?.message?.includes('No download URL') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to load stops' };
     }
   });
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id/shapes', async (request, reply) => {
     try {
       return await gtfsStatic.getShapes(request.params.id);
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to load shapes' };
+      const status = err?.message?.includes('No download URL') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to load shapes' };
     }
   });
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id/trips', async (request, reply) => {
     try {
       return await gtfsStatic.getTrips(request.params.id);
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to load trips' };
+      const status = err?.message?.includes('No download URL') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to load trips' };
     }
   });
 
   app.get<{ Params: { id: string } }>('/api/agencies/:id/stop-to-routes', async (request, reply) => {
     try {
       return await gtfsStatic.getStopToRoutes(request.params.id);
-    } catch (err) {
+    } catch (err: any) {
       app.log.error(err);
-      reply.status(502);
-      return { error: 'Failed to load stop-to-routes mapping' };
+      const status = err?.message?.includes('No download URL') ? 404 : 502;
+      reply.status(status);
+      return { error: status === 404 ? 'Agency not found' : 'Failed to load stop-to-routes mapping' };
     }
   });
 
