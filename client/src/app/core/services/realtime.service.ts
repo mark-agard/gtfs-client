@@ -47,17 +47,7 @@ export class RealtimeService {
       }
 
       if (data.type === 'snapshot' || data.type === 'update') {
-        if (data.type === 'snapshot') {
-          this.vehiclePositions.set(data.positions);
-        } else {
-          this.vehiclePositions.update((prev) => {
-            const map = new Map(prev.map((p) => [p.vehicleId, p]));
-            for (const pos of data.positions) {
-              map.set(pos.vehicleId, pos);
-            }
-            return Array.from(map.values());
-          });
-        }
+        this.vehiclePositions.set(data.positions);
       }
 
       if (data.type === 'alerts') {
