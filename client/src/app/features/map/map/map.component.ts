@@ -238,6 +238,7 @@ export class MapComponent implements OnDestroy {
   private stopSource = new VectorSource();
   private vehicleSource = new VectorSource();
   private routeColorMap = new globalThis.Map<string, string>();
+  private vehicleFeatureMap = new globalThis.Map<string, Feature>();
 
   private readonly routeLayer = new VectorLayer({
     source: this.routeSource,
@@ -348,6 +349,8 @@ export class MapComponent implements OnDestroy {
       if (!agency) return;
 
       this.routeSource.clear();
+      this.vehicleSource.clear();
+      this.vehicleFeatureMap.clear();
       this.gtfsService.getRouteShapes(agency.id).subscribe({
         next: (geojson) => {
           const features = new GeoJSON().readFeatures(geojson, {
@@ -408,29 +411,54 @@ export class MapComponent implements OnDestroy {
   }
 
   private updateVehiclePositions(positions: VehiclePosition[]): void {
-    this.vehicleSource.clear();
+    const seen = new Set<string>();
 
     for (const pos of positions) {
-      const feature = new Feature({
-        geometry: new Point(fromLonLat([pos.lon, pos.lat])),
-        vehicleId: pos.vehicleId,
-        routeId: pos.routeId,
-        bearing: pos.bearing,
-      });
+      seen.add(pos.vehicleId);
+      const existing = this.vehicleFeatureMap.get(pos.vehicleId);
 
-      feature.setStyle(
-        new Style({
-          image: new RegularShape({
-            points: 3,
-            radius: 8,
-            rotation: (pos.bearing * Math.PI) / 180,
-            fill: new Fill({ color: `#${this.routeColorMap.get(pos.routeId) ?? '1976d2'}` }),
-            stroke: new Stroke({ color: '#fff', width: 1 }),
+      if (existing) {
+        (existing.getGeometry() as Point).setCoordinates(fromLonLat([pos.lon, pos.lat]));
+        existing.set('bearing', pos.bearing);
+        existing.setStyle(
+          new Style({
+            image: new RegularShape({
+              points: 3,
+              radius: 8,
+              rotation: (pos.bearing * Math.PI) / 180,
+              fill: new Fill({ color: `#${this.routeColorMap.get(pos.routeId) ?? '1976d2'}` }),
+              stroke: new Stroke({ color: '#fff', width: 1 }),
+            }),
           }),
-        }),
-      );
+        );
+      } else {
+        const feature = new Feature({
+          geometry: new Point(fromLonLat([pos.lon, pos.lat])),
+          vehicleId: pos.vehicleId,
+          routeId: pos.routeId,
+          bearing: pos.bearing,
+        });
+        feature.setStyle(
+          new Style({
+            image: new RegularShape({
+              points: 3,
+              radius: 8,
+              rotation: (pos.bearing * Math.PI) / 180,
+              fill: new Fill({ color: `#${this.routeColorMap.get(pos.routeId) ?? '1976d2'}` }),
+              stroke: new Stroke({ color: '#fff', width: 1 }),
+            }),
+          }),
+        );
+        this.vehicleSource.addFeature(feature);
+        this.vehicleFeatureMap.set(pos.vehicleId, feature);
+      }
+    }
 
-      this.vehicleSource.addFeature(feature);
+    for (const [vehicleId, feature] of this.vehicleFeatureMap) {
+      if (!seen.has(vehicleId)) {
+        this.vehicleSource.removeFeature(feature);
+        this.vehicleFeatureMap.delete(vehicleId);
+      }
     }
   }
 
