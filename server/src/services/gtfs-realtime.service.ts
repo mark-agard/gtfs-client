@@ -25,29 +25,50 @@ interface AgencyPoller {
 
 export class GtfsRealtimeService {
   private readonly pollers = new Map<string, AgencyPoller>();
+  private readonly pendingSubscriptions = new Map<string, Promise<AgencyPoller>>();
 
   constructor(private readonly mobilityDb: MobilityDbService) {}
 
   async subscribe(agencyId: string, listener: UpdateListener): Promise<AgencyPoller> {
-    let poller = this.pollers.get(agencyId);
-
-    if (!poller) {
-      const feeds = await this.mobilityDb.getRealtimeFeedUrls(agencyId);
-      poller = {
-        interval: setInterval(() => this.poll(agencyId), POLL_INTERVAL_MS),
-        clientCount: 0,
-        vehiclePositions: [],
-        alerts: [],
-        feeds,
-        listeners: new Set(),
-      };
-      this.pollers.set(agencyId, poller);
-
-      await this.poll(agencyId);
+    const existing = this.pollers.get(agencyId);
+    if (existing) {
+      existing.clientCount++;
+      existing.listeners.add(listener);
+      return existing;
     }
 
-    poller.clientCount++;
-    poller.listeners.add(listener);
+    const pending = this.pendingSubscriptions.get(agencyId);
+    if (pending) {
+      const poller = await pending;
+      poller.clientCount++;
+      poller.listeners.add(listener);
+      return poller;
+    }
+
+    const promise = this.createPoller(agencyId);
+    this.pendingSubscriptions.set(agencyId, promise);
+    try {
+      const poller = await promise;
+      poller.clientCount++;
+      poller.listeners.add(listener);
+      return poller;
+    } finally {
+      this.pendingSubscriptions.delete(agencyId);
+    }
+  }
+
+  private async createPoller(agencyId: string): Promise<AgencyPoller> {
+    const feeds = await this.mobilityDb.getRealtimeFeedUrls(agencyId);
+    const poller: AgencyPoller = {
+      interval: setInterval(() => this.poll(agencyId), POLL_INTERVAL_MS),
+      clientCount: 0,
+      vehiclePositions: [],
+      alerts: [],
+      feeds,
+      listeners: new Set(),
+    };
+    this.pollers.set(agencyId, poller);
+    await this.poll(agencyId);
     return poller;
   }
 
