@@ -131,7 +131,7 @@ export class GtfsStaticService {
 
     return new Promise((resolve, reject) => {
       const records: Record<string, string>[] = [];
-      parse(buffer.toString('utf-8'), {
+      parse(buffer, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
