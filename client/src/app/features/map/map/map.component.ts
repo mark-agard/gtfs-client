@@ -239,6 +239,8 @@ export class MapComponent implements OnDestroy {
   private vehicleSource = new VectorSource();
   private routeColorMap = new globalThis.Map<string, string>();
   private vehicleFeatureMap = new globalThis.Map<string, Feature>();
+  private stopFeatureMap = new globalThis.Map<string, Feature>();
+  private shapesSub?: { unsubscribe(): void };
 
   private readonly routeLayer = new VectorLayer({
     source: this.routeSource,
@@ -351,7 +353,10 @@ export class MapComponent implements OnDestroy {
       this.routeSource.clear();
       this.vehicleSource.clear();
       this.vehicleFeatureMap.clear();
-      this.gtfsService.getRouteShapes(agency.id).subscribe({
+      this.stopSource.clear();
+      this.stopFeatureMap.clear();
+      this.shapesSub?.unsubscribe();
+      this.shapesSub = this.gtfsService.getRouteShapes(agency.id).subscribe({
         next: (geojson) => {
           const features = new GeoJSON().readFeatures(geojson, {
             featureProjection: 'EPSG:3857',
@@ -359,6 +364,7 @@ export class MapComponent implements OnDestroy {
           this.routeSource.addFeatures(features);
           this.routeLayer.changed();
         },
+        error: () => {},
       });
     });
 
@@ -380,23 +386,36 @@ export class MapComponent implements OnDestroy {
       const stopToRoutes = this.gtfsService.stopToRoutes();
       if (stops.length === 0) {
         this.stopSource.clear();
+        this.stopFeatureMap.clear();
         return;
       }
 
-      this.stopSource.clear();
+      const seen = new Set<string>();
       for (const stop of stops) {
+        seen.add(stop.id);
         const routeIds = stopToRoutes[stop.id];
         const isHidden = routeIds && routeIds.length > 0
           ? routeIds.every((rid) => hidden.has(rid))
           : allHidden;
-        if (isHidden) continue;
 
-        const feature = new Feature({
-          geometry: new Point(fromLonLat([stop.lon, stop.lat])),
-          name: stop.name,
-          stopId: stop.id,
-        });
-        this.stopSource.addFeature(feature);
+        let feature = this.stopFeatureMap.get(stop.id);
+        if (!feature) {
+          feature = new Feature({
+            geometry: new Point(fromLonLat([stop.lon, stop.lat])),
+            name: stop.name,
+            stopId: stop.id,
+          });
+          this.stopSource.addFeature(feature);
+          this.stopFeatureMap.set(stop.id, feature);
+        }
+        feature.setStyle(isHidden ? [] : undefined);
+      }
+
+      for (const [stopId, feature] of this.stopFeatureMap) {
+        if (!seen.has(stopId)) {
+          this.stopSource.removeFeature(feature);
+          this.stopFeatureMap.delete(stopId);
+        }
       }
     });
 

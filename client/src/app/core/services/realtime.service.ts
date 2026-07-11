@@ -39,7 +39,12 @@ export class RealtimeService {
     };
 
     this.socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
 
       if (data.type === 'pong') {
         this.pongReceived = true;

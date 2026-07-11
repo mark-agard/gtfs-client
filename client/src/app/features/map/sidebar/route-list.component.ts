@@ -170,21 +170,13 @@ export class RouteListComponent {
   }
 
   showAllFiltered(): void {
-    const hidden = this.gtfsService.hiddenRoutes();
-    for (const route of this.filteredRoutes()) {
-      if (hidden.has(route.id)) {
-        this.gtfsService.toggleRoute(route.id, true);
-      }
-    }
+    const ids = this.filteredRoutes().map((r) => r.id);
+    this.gtfsService.setRoutesVisible(ids, true);
   }
 
   hideAllFiltered(): void {
-    const hidden = this.gtfsService.hiddenRoutes();
-    for (const route of this.filteredRoutes()) {
-      if (!hidden.has(route.id)) {
-        this.gtfsService.toggleRoute(route.id, false);
-      }
-    }
+    const ids = this.filteredRoutes().map((r) => r.id);
+    this.gtfsService.setRoutesVisible(ids, false);
   }
 
   textColor(bgColor: string): string {

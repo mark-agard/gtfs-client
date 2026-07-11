@@ -4,7 +4,6 @@ export interface Agency {
   feedName: string;
   location: string;
   state: string;
-  routeCount: number;
   hasRealtime: boolean;
   feedStatus: 'active' | 'inactive' | 'unknown';
 }
@@ -17,7 +16,6 @@ export interface AgencyDetail {
   timezone: string;
   location: string;
   state: string;
-  routeCount: number;
   hasRealtime: boolean;
   realtimeStatus: 'available' | 'requires_auth' | 'none';
   feedStatus: 'active' | 'inactive' | 'unknown';

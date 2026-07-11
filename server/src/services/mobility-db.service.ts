@@ -111,7 +111,6 @@ export class MobilityDbService {
           name: feed.provider,
           feedName: feed.feed_name ?? '',
           ...this.deriveLocation(feed.locations),
-          routeCount: 0,
           hasRealtime: false,
           feedStatus: feed.status === 'active' ? 'active' : 'inactive',
         }));
@@ -157,7 +156,6 @@ export class MobilityDbService {
       url: feed.source_info?.producer_url ?? '',
       timezone: feed.latest_dataset?.agency_timezone ?? 'America/New_York',
       ...this.deriveLocation(feed.locations),
-      routeCount: 0,
       hasRealtime,
       realtimeStatus,
       feedStatus: feed.status === 'active' ? 'active' : 'inactive',

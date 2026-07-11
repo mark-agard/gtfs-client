@@ -17,6 +17,7 @@ export class GtfsService {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly hiddenRoutes = signal<Set<string>>(new Set());
+  private staticSub?: { unsubscribe(): void };
 
   toggleRoute(routeId: string, visible: boolean): void {
     this.hiddenRoutes.update((set) => {
@@ -30,11 +31,26 @@ export class GtfsService {
     });
   }
 
+  setRoutesVisible(routeIds: string[], visible: boolean): void {
+    this.hiddenRoutes.update((set) => {
+      const next = new Set(set);
+      for (const id of routeIds) {
+        if (visible) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  }
+
   loadStaticData(agencyId: string): void {
+    this.staticSub?.unsubscribe();
     this.loading.set(true);
     this.error.set(null);
 
-    forkJoin({
+    this.staticSub = forkJoin({
       routes: this.http.get<{ routes: Route[] }>(`${this.baseUrl}/${agencyId}/routes`),
       stops: this.http.get<GeoJSONFeatureCollection<Stop>>(`${this.baseUrl}/${agencyId}/stops`),
       trips: this.http.get<Record<string, string>>(`${this.baseUrl}/${agencyId}/trips`),
@@ -59,6 +75,7 @@ export class GtfsService {
   }
 
   clear(): void {
+    this.staticSub?.unsubscribe();
     this.routes.set([]);
     this.stops.set([]);
     this.tripToRoute.set({});
