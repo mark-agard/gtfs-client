@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import compress from '@fastify/compress';
 import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import dotenv from 'dotenv';
@@ -24,6 +25,7 @@ const gtfsStatic = new GtfsStaticService(mobilityDb);
 const gtfsRealtime = new GtfsRealtimeService(mobilityDb, app.log);
 
 await app.register(cors, { origin: [CLIENT_URL] });
+await app.register(compress);
 await app.register(websocket);
 
 await healthRoutes(app);

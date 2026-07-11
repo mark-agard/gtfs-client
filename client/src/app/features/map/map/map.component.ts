@@ -238,6 +238,7 @@ export class MapComponent implements OnDestroy {
   private stopSource = new VectorSource();
   private vehicleSource = new VectorSource();
   private routeColorMap = new globalThis.Map<string, string>();
+  private routeStyleCache = new globalThis.Map<string, Style>();
   private vehicleFeatureMap = new globalThis.Map<string, Feature>();
   private stopFeatureMap = new globalThis.Map<string, Feature>();
   private shapesSub?: { unsubscribe(): void };
@@ -246,11 +247,15 @@ export class MapComponent implements OnDestroy {
     source: this.routeSource,
     style: (feature) => {
       const routeId = feature.get('routeId') as string;
-      const route = this.routeColorMap.get(routeId);
-      const color = route ? `#${route}` : '#3388ff';
-      return new Style({
-        stroke: new Stroke({ color, width: 3 }),
-      });
+      const color = this.routeColorMap.get(routeId) ?? '3388ff';
+      let style = this.routeStyleCache.get(color);
+      if (!style) {
+        style = new Style({
+          stroke: new Stroke({ color: `#${color}`, width: 3 }),
+        });
+        this.routeStyleCache.set(color, style);
+      }
+      return style;
     },
   });
 
@@ -342,6 +347,7 @@ export class MapComponent implements OnDestroy {
       this.routeColorMap = new globalThis.Map(
         routes.map((r) => [r.id, r.color] as [string, string]),
       );
+      this.routeStyleCache.clear();
       this.routeLayer.changed();
     });
 
