@@ -1,6 +1,6 @@
 # GTFS Client
 
-An interactive web application for exploring real-time public transit data from U.S. transit agencies! Browse transit systems, view routes and stops on an interactive map, and watch vehicles move in real time — all powered by open GTFS and GTFS-Realtime feeds.
+An interactive web application for exploring real-time public transit data from U.S. transit agencies! Browse transit systems, view routes and stops on an interactive map, and watch vehicles move in real time, all powered by open GTFS and GTFS-Realtime feeds.
 
 This project is the spiritual successor to much less mature implementation that focused on WMATA data. I think exploring live transit data is an interesting use-case, but I decided starting anew was better than trying to retrofit the old codebase, given how early in development it was. In particular, I wanted to architecture this project more intentionally!
 
